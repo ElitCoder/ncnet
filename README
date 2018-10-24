@@ -1,0 +1,4 @@
+ncnet - high performance networking for C++
+
+Installing:
+./install.sh
