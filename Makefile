@@ -18,6 +18,7 @@ CXX_FLAGS	+= -g
 CXX_FLAGS	+= -fPIC
 CXX_FLAGS	+= -I./$(INC_FOLDER)
 
+LDLIBS		:= -lpthread
 LIB_TYPE	:= -shared
 LIB_NAME	:= $(NAME).so
 TARGET		:= $(LIB_FOLDER)/$(LIB_NAME)
@@ -39,7 +40,7 @@ uninstall:
 	rm -f $(INST_LIB)/$(LIB_NAME)
 
 build: $(OBJ_FILES)
-	$(CXX) $^ -o $(TARGET) $(LIB_TYPE)
+	$(CXX) $^ -o $(TARGET) $(LIB_TYPE) $(LD_LIBS)
 
 $(OBJ_FOLDER)/%.o: $(SRC_FOLDER)/%.cpp
 	$(CXX) $(CXX_FLAGS) -c -o $@ $<
