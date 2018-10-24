@@ -1,4 +1,3 @@
-#pragma once
 #ifndef NETWORK_COMMUNICATION_H
 #define NETWORK_COMMUNICATION_H
 
