@@ -1,12 +1,11 @@
 #ifndef CONNECTION_H
 #define CONNECTION_H
 
+#include "PartialPacket.h"
+
 #include <list>
 #include <mutex>
 #include <memory>
-
-class Packet;
-class PartialPacket;
 
 class Connection {
 public:
@@ -14,22 +13,21 @@ public:
 
     bool operator==(const Connection &connection);
 
-    int getSocket() const;
-    PartialPacket& getPartialPacket();
-    void addPartialPacket(const PartialPacket &partialPacket);
-    bool hasIncomingPacket() const;
-    PartialPacket& getIncomingPacket();
-    void processedPacket();
+    PartialPacket& get_partial_packet();
+    void add_partial_packet(const PartialPacket &partial);
+    bool has_incoming_packet() const;
+    PartialPacket& get_incoming_packet();
+    void processed_packet();
 
-    bool isVerified() const;
-    void setIP(const std::string& ip);
+    size_t packets_waiting();
+    void reduce_wait();
+    void increase_wait();
 
-    size_t packetsWaiting();
-    void reducePacketsWaiting();
-    void increasePacketsWaiting();
-
-    size_t getUniqueID() const;
-    const std::string& getIP() const;
+    bool is_verified() const;
+    int get_socket() const;
+    size_t get_id() const;
+    void set_ip(const std::string& ip);
+    const std::string& get_ip() const;
 
 private:
     std::list<PartialPacket> in_queue_;
@@ -37,7 +35,7 @@ private:
     size_t waiting_processing_ = 0;
     std::shared_ptr<std::mutex> waiting_processing_mutex_;
 
-    size_t unique_id_ = 0;
+    size_t id_ = 0;
     std::string ip_;
     int socket_;
 };

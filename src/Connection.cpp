@@ -8,7 +8,8 @@
 
 using namespace std;
 
-Connection::Connection(int socket) {
+Connection::Connection(int socket)
+{
     socket_ = socket;
     waiting_processing_mutex_ = make_shared<mutex>();
 
@@ -17,88 +18,105 @@ Connection::Connection(int socket) {
 
     int on = 1;
 
-    if (setsockopt(socket_, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<char*>(&on), sizeof on) < 0)
+    if (setsockopt(socket_, IPPROTO_TCP, TCP_NODELAY,
+            reinterpret_cast<char*>(&on), sizeof on) < 0) {
         Log(WARNING) << "Could not set TCP_NODELAY\n";
+    }
 
-    static size_t unique_id;
-    unique_id_ = unique_id++;
+    static size_t id;
+    id_ = id++;
 }
 
-bool Connection::operator==(const Connection &connection) {
-    return unique_id_ == connection.unique_id_;
+bool Connection::operator==(const Connection &connection)
+{
+    return id_ == connection.id_;
 }
 
-size_t Connection::getUniqueID() const {
-    return unique_id_;
+size_t Connection::get_id() const
+{
+    return id_;
 }
 
-int Connection::getSocket() const {
+int Connection::get_socket() const
+{
     return socket_;
 }
 
-PartialPacket& Connection::getPartialPacket() {
-    if(in_queue_.empty() || in_queue_.back().isFinished()) {
-        addPartialPacket(PartialPacket());
+PartialPacket& Connection::get_partial_packet()
+{
+    if (in_queue_.empty() || in_queue_.back().isFinished()) {
+        add_partial_packet(PartialPacket());
     }
 
     return in_queue_.back();
 }
 
-void Connection::addPartialPacket(const PartialPacket &partialPacket) {
-    in_queue_.push_back(partialPacket);
+void Connection::add_partial_packet(const PartialPacket &partial)
+{
+    in_queue_.push_back(partial);
 }
 
-bool Connection::hasIncomingPacket() const {
+bool Connection::has_incoming_packet() const
+{
     return in_queue_.empty() ? false : in_queue_.front().isFinished();
 }
 
-PartialPacket& Connection::getIncomingPacket() {
-    if(in_queue_.empty()) {
-        Log(ERROR) << "Trying to get an incoming packet while the inQueue is empty\n";
+PartialPacket& Connection::get_incoming_packet()
+{
+    if (in_queue_.empty()) {
+        Log(ERROR) << "Trying to get an incoming packet while the inQueue " \
+        "is empty\n";
     }
 
     return in_queue_.front();
 }
 
-void Connection::processedPacket() {
-    if(in_queue_.empty()) {
+void Connection::processed_packet()
+{
+    if (in_queue_.empty()) {
         Log(ERROR) << "Trying to pop_front when the inQueue is empty\n";
 
         return;
     }
 
     in_queue_.pop_front();
-    increasePacketsWaiting();
+    increase_wait();
 }
 
 // TODO: Implement this on a later stage
-bool Connection::isVerified() const {
+bool Connection::is_verified() const
+{
     return true;
 }
 
-size_t Connection::packetsWaiting() {
+size_t Connection::packets_waiting()
+{
     lock_guard<mutex> lock(*waiting_processing_mutex_);
 
     return waiting_processing_;
 }
 
-void Connection::reducePacketsWaiting() {
+void Connection::reduce_wait()
+{
     lock_guard<mutex> lock(*waiting_processing_mutex_);
 
     if (waiting_processing_ > 0)
         waiting_processing_--;
 }
 
-void Connection::increasePacketsWaiting() {
+void Connection::increase_wait()
+{
     lock_guard<mutex> lock(*waiting_processing_mutex_);
 
     waiting_processing_++;
 }
 
-void Connection::setIP(const string& ip) {
+void Connection::set_ip(const string& ip)
+{
     ip_ = ip;
 }
 
-const string& Connection::getIP() const {
+const string& Connection::get_ip() const
+{
     return ip_;
 }

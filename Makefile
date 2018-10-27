@@ -40,7 +40,7 @@ uninstall:
 	rm -f $(INST_LIB)/$(LIB_NAME)
 
 build: $(OBJ_FILES)
-	$(CXX) $^ -o $(TARGET) $(LIB_TYPE) $(LD_LIBS)
+	$(CXX) $^ -o $(TARGET) $(LIB_TYPE) $(LDLIBS)
 
 $(OBJ_FOLDER)/%.o: $(SRC_FOLDER)/%.cpp
 	$(CXX) $(CXX_FLAGS) -c -o $@ $<

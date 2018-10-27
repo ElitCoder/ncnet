@@ -8,16 +8,19 @@ using namespace std;
 
 mutex Log::print_mutex_;
 
-Log::Log() {
+Log::Log()
+{
 	level_ = NONE;
 }
 
-Log::Log(int level) {
+Log::Log(int level)
+{
 	level_ = level;
 }
 
 // TODO: Add functionality for writing to file, etc.
-Log::~Log() {
+Log::~Log()
+{
 	lock_guard<mutex> guard(print_mutex_);
 
 	switch (level_) {
