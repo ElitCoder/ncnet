@@ -7,7 +7,10 @@
 
 using namespace std;
 
-Packet::Packet() : m_sent(0), m_read(0), m_finalized(false) {
+Packet::Packet() {
+    m_sent = 0;
+    m_read = 0;
+    m_finalized = false;
     m_packet = make_shared<vector<unsigned char>>();
 
     // Insert header placeholders
@@ -15,7 +18,11 @@ Packet::Packet() : m_sent(0), m_read(0), m_finalized(false) {
         m_packet->push_back(0);
 }
 
-Packet::Packet(const unsigned char *buffer, const unsigned int size) : m_sent(0), m_read(0), m_finalized(false) {
+Packet::Packet(const unsigned char *buffer, unsigned int size) {
+    m_sent = 0;
+    m_read = 0;
+    m_finalized = false;
+
     if(buffer == nullptr || size == 0) {
         Log(WARNING) << "Trying to create packet with empty buffer\n";
 
@@ -34,10 +41,14 @@ Packet::Packet(const unsigned char *buffer, const unsigned int size) : m_sent(0)
 }
 
 Packet::Packet(PartialPacket &&partialPacket) : m_sent(0), m_read(0), m_finalized(true) {
+    m_sent = 0;
+    m_read = 0;
+    m_finalized = true;
+
     m_packet = partialPacket.getData();
 }
 
-void Packet::addHeader(const unsigned char header) {
+void Packet::addHeader(unsigned char header) {
     if(isFinalized()) {
         Log(ERROR) << "Can't add anything to a finalized packet\n";
 
@@ -74,7 +85,7 @@ void Packet::addBytes(const pair<size_t, const unsigned char*>& bytes) {
     m_packet->insert(m_packet->end(), bytes.second, bytes.second + bytes.first);
 }
 
-void Packet::addInt(const int nbr) {
+void Packet::addInt(int nbr) {
     if(isFinalized()) {
         Log(ERROR) << "Can't add anything to a finalized packet\n";
 
@@ -87,7 +98,7 @@ void Packet::addInt(const int nbr) {
     m_packet->push_back(nbr & 0xFF);
 }
 
-void Packet::addBool(const bool val) {
+void Packet::addBool(bool val) {
     if(isFinalized()) {
         Log(ERROR) << "Can't add anything to a finalized packet\n";
 
@@ -97,7 +108,7 @@ void Packet::addBool(const bool val) {
     m_packet->push_back(val ? 1 : 0);
 }
 
-void Packet::addFloat(const float nbr) {
+void Packet::addFloat(float nbr) {
     if(isFinalized()) {
         Log(ERROR) << "Can't add anything to a finalized packet\n";
 
@@ -196,7 +207,7 @@ pair<size_t, const unsigned char*> Packet::getBytes() {
     return { size, iterator };
 }
 
-void Packet::addSent(const int sent) {
+void Packet::addSent(int sent) {
     m_sent += sent;
 }
 

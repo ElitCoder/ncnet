@@ -10,10 +10,9 @@ class PartialPacket;
 
 class Connection {
 public:
-    explicit Connection(const int socket);
+    explicit Connection(int socket);
 
     bool operator==(const Connection &connection);
-    bool operator==(const int fd);
 
     int getSocket() const;
     PartialPacket& getPartialPacket();
@@ -33,7 +32,6 @@ public:
     const std::string& getIP() const;
 
 private:
-    int socket_;
     std::list<PartialPacket> in_queue_;
 
     size_t waiting_processing_ = 0;
@@ -41,6 +39,7 @@ private:
 
     size_t unique_id_ = 0;
     std::string ip_;
+    int socket_;
 };
 
 #endif

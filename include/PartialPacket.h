@@ -10,7 +10,7 @@ public:
 
     unsigned int getFullSize() const;
     unsigned int getSize() const;
-    void addData(const unsigned char *buffer, const unsigned int size);
+    void addData(const unsigned char *buffer, unsigned int size);
     bool hasHeader() const;
     bool isFinished() const;
     std::shared_ptr<std::vector<unsigned char>>& getData();

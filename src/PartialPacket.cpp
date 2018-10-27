@@ -4,7 +4,8 @@
 
 using namespace std;
 
-PartialPacket::PartialPacket() : m_size(0) {
+PartialPacket::PartialPacket() {
+    m_size = 0;
     m_packet = make_shared<vector<unsigned char>>();
 }
 
@@ -34,7 +35,7 @@ unsigned int PartialPacket::getFullSize() const {
     return m_size;
 }
 
-void PartialPacket::addData(const unsigned char *buffer, const unsigned int size) {
+void PartialPacket::addData(const unsigned char *buffer, unsigned int size) {
     if(buffer == nullptr || size == 0) {
         Log(ERROR) << "Trying to insert nullptr or size = 0 data in partial packet\n";
 

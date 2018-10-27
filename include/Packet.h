@@ -10,15 +10,15 @@ class PartialPacket;
 class Packet {
 public:
     Packet();
-    Packet(const unsigned char *buffer, const unsigned int size);
+    Packet(const unsigned char *buffer, unsigned int size);
 
     Packet(PartialPacket &&partialPacket);
 
-    void addHeader(const unsigned char header);
+    void addHeader(unsigned char header);
     void addString(const std::string &str);
-    void addInt(const int nbr);
-    void addFloat(const float nbr);
-    void addBool(const bool val);
+    void addInt(int nbr);
+    void addFloat(float nbr);
+    void addBool(bool val);
     void addBytes(const std::pair<size_t, const unsigned char*>& bytes);
 
     unsigned char getByte();
@@ -31,7 +31,7 @@ public:
     const unsigned char* getData() const;
     unsigned int getSize() const;
     unsigned int getSent() const;
-    void addSent(const int sent);
+    void addSent(int sent);
     bool fullySent() const;
 
     bool isEmpty() const;

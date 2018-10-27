@@ -8,7 +8,7 @@
 
 using namespace std;
 
-Connection::Connection(const int socket) {
+Connection::Connection(int socket) {
     socket_ = socket;
     waiting_processing_mutex_ = make_shared<mutex>();
 
@@ -17,7 +17,7 @@ Connection::Connection(const int socket) {
 
     int on = 1;
 
-    if (setsockopt(socket_, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<char*>(&on), sizeof(on)) < 0)
+    if (setsockopt(socket_, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<char*>(&on), sizeof on) < 0)
         Log(WARNING) << "Could not set TCP_NODELAY\n";
 
     static size_t unique_id;
@@ -25,11 +25,7 @@ Connection::Connection(const int socket) {
 }
 
 bool Connection::operator==(const Connection &connection) {
-    return socket_ == connection.socket_;
-}
-
-bool Connection::operator==(const int fd) {
-    return socket_ == fd;
+    return unique_id_ == connection.unique_id_;
 }
 
 size_t Connection::getUniqueID() const {

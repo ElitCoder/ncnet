@@ -1,5 +1,6 @@
 #include "Log.h"
 
+// TODO: Make these dynamic somehow
 #define PRINT_STREAM	(std::cout)
 #define FLUSH_STREAM	(std::flush)
 

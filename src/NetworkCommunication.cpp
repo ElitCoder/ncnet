@@ -507,9 +507,12 @@ void NetworkCommunication::sendToAllExcept(const Packet &packet, const std::vect
         auto& connections = mConnections.at(i);
 
         for (auto& connection_peer : connections) {
-            if (!except.empty())
-                if (find_if(except.begin(), except.end(), [&connection_peer] (auto fd) { return connection_peer.second == fd; }) != except.end())
-                    continue;
+            if (!except.empty()) {
+				if (find_if(except.begin(), except.end(), [&connection_peer] (auto fd) {
+                        return connection_peer.second.getSocket() == fd; }) != except.end()) {
+					continue;
+                }
+			}
 
             addOutgoingPacket(connection_peer.second.getSocket(), packet);
         }
