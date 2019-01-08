@@ -6,7 +6,7 @@
 class Network {
 public:
     //virtual bool connected() const;
-    bool prepareSocket(int fd);
+    static bool prepareSocket(int fd);
     int getSocket() const;
 
 protected:

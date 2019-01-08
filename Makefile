@@ -15,10 +15,11 @@ OBJ_FILES	:= $(addprefix $(OBJ_FOLDER)/,$(notdir $(CPP_FILES:.cpp=.o)))
 CXX_FLAGS	:= -std=c++14 -Wall -Wextra -pedantic-errors
 CXX_FLAGS	+= -g
 #CXX_FLAGS	+= -O3
+CXX_FLAGS	+= -fopenmp
 CXX_FLAGS	+= -fPIC
 CXX_FLAGS	+= -I./$(INC_FOLDER)
 
-LDLIBS		:= -lpthread
+LDLIBS		:= -lpthread -fopenmp
 LIB_TYPE	:= -shared
 LIB_NAME	:= lib$(NAME).so
 TARGET		:= $(LIB_FOLDER)/$(LIB_NAME)
