@@ -1,21 +1,17 @@
 #ifndef NETWORK_H
 #define NETWORK_H
 
-#include <vector>
-#include <string>
-#include <memory>
-
-class Server;
-class Client;
+#include <thread>
 
 class Network {
 public:
-	Server& start_server(int port);
-	Client& start_client(const std::string& hostname, int port);
+    //virtual bool connected() const;
+    bool prepareSocket(int fd);
+    int getSocket() const;
 
-private:
-	std::vector<std::shared_ptr<Server>> servers_;
-	std::vector<std::shared_ptr<Client>> clients_;
+protected:
+    std::thread network_;
+    int socket_;
 };
 
 #endif

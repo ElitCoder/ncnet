@@ -1,11 +1,14 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
-#include <string>
+#include "Network.h"
+//#include "Packet.h"
 
-class Client {
+class Client : public Network {
 public:
-	bool start(const std::string& hostname, int port);
+    bool start(const std::string& hostname, int port);
+
+	//Packet get();
 };
 
 #endif

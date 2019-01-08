@@ -1,23 +1,25 @@
 #include "Network.h"
-#include "Server.h"
-#include "Client.h"
+#include "Log.h"
+#include <fcntl.h>
 
-using namespace std;
+bool Network::prepareSocket(int fd) {
+    // Just set non-blocking for now
+    int flags = fcntl(fd, F_GETFL, 0);
+    if (flags == -1) {
+        Log(WARNING) << "Failed to get flags from fd\n";
+        return false;
+    }
 
-Server& Network::start_server(int port)
-{
-	servers_.emplace_back(make_shared<Server>());
-	Server& server = *servers_.back();
-	server.start(port);
+    flags |= O_NONBLOCK;
 
-	return server;
+    if (fcntl(fd, F_SETFL, flags) == -1) {
+        Log(WARNING) << "Failed to set non-blocking socket\n";
+        return false;
+    }
+
+    return true;
 }
 
-Client& Network::start_client(const string& hostname, int port)
-{
-	clients_.emplace_back(make_shared<Client>());
-	Client& client = *clients_.back();
-	client.start(hostname, port);
-
-	return client;
+int Network::getSocket() const {
+    return socket_;
 }

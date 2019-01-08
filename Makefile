@@ -1,4 +1,4 @@
-NAME		:= libncnet
+NAME		:= ncnet
 
 OBJ_FOLDER	:= obj
 SRC_FOLDER	:= src
@@ -20,7 +20,7 @@ CXX_FLAGS	+= -I./$(INC_FOLDER)
 
 LDLIBS		:= -lpthread
 LIB_TYPE	:= -shared
-LIB_NAME	:= $(NAME).so
+LIB_NAME	:= lib$(NAME).so
 TARGET		:= $(LIB_FOLDER)/$(LIB_NAME)
 
 all: build
