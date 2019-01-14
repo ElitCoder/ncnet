@@ -1,15 +1,18 @@
 #ifndef _INFORMATION_H_
 #define _INFORMATION_H_
 
-//#include "Packet.h"
+#include "Packet.h"
 #include <cstddef>
 
 class Information {
 public:
-    //Information(Packet& packet, size_t peer_id);
+    Information(Packet& packet, size_t peer_id);
+
+    size_t getId() const;
+    Packet& getPacket();
 
 private:
-    //Packet packet_;
+    Packet packet_;
     size_t peer_id_;
 };
 

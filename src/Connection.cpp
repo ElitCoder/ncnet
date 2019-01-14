@@ -1,4 +1,5 @@
 #include "Connection.h"
+#include "Log.h"
 
 #include <unistd.h>
 
@@ -36,4 +37,35 @@ Packet& Connection::getPacketSkeleton() {
 
 size_t Connection::getId() const {
     return id_;
+}
+
+bool Connection::hasIncoming() const {
+    return incoming_.empty() ? false : incoming_.front().isFinished();
+}
+
+Packet Connection::getIncoming() {
+    if (!hasIncoming()) {
+        Log(WARNING) << "Trying to retrieve incoming packets when there are none\n";
+    }
+
+    auto packet = incoming_.front();
+    incoming_.pop_front();
+
+    return packet;
+}
+
+bool Connection::hasOutgoing() const {
+    return !outgoing_.empty();
+}
+
+Packet& Connection::getOutgoing() {
+    return outgoing_.front();
+}
+
+void Connection::doneOutgoing() {
+    outgoing_.pop_front();
+}
+
+void Connection::addOutgoing(Packet& packet) {
+    outgoing_.push_back(packet);
 }

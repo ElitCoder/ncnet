@@ -28,6 +28,8 @@ bool Server::read(Connection& connection) {
     constexpr auto BUFFER_SIZE = 1024 * 1024;
     static vector<unsigned char> buffer;
 
+    Log(DEBUG) << "Reading data from " << connection.getId() << endl;
+
     if (buffer.empty()) {
         Log(DEBUG) << "Resizing static buffer\n";
         buffer.resize(BUFFER_SIZE);
@@ -38,17 +40,61 @@ bool Server::read(Connection& connection) {
         return false;
     }
 
+    Log(DEBUG) << "Processing " << received << " bytes\n";
+
     // Process buffer
     int processed = 0;
     while (processed < received) {
-        processed += processBuffer(connection.getPacketSkeleton(), buffer.data(), received);
+        auto i = processBuffer(connection.getPacketSkeleton(), buffer.data() + processed, received - processed);
+        processed += i;
+
+        Log(DEBUG) << "Processed " << i << " bytes\n";
+
+        if (i == 0) {
+            exit(-1);
+        }
+    }
+
+    Log(DEBUG) << "Processing done\n";
+
+    list<Information> incoming;
+
+    // See if any packets are complete
+    while (connection.hasIncoming()) {
+        auto packet = connection.getIncoming();
+        incoming.emplace_back(packet, connection.getId());
+    }
+
+    if (!incoming.empty()) {
+        lock_guard<mutex> lock(incoming_lock_);
+        incoming_.insert(incoming_.end(), incoming.begin(), incoming.end());
+
+        if (incoming.size() > 1) {
+            incoming_cv_.notify_all();
+        } else {
+            incoming_cv_.notify_one();
+        }
     }
 
     return true;
 }
 
 bool Server::write(Connection& connection) {
-    return false;
+    auto& packet = connection.getOutgoing();
+
+    int sent = ::send(connection.getSocket(), packet.getData() + packet.getSent(), packet.getSize() - packet.getSent(), 0);
+    if (sent <= 0) {
+        return false;
+    }
+
+    auto fully = packet.addSent(sent);
+    if (fully) {
+        // Remove packet, it's fully sent
+        connection.doneOutgoing();
+    }
+
+    // Success
+    return true;
 }
 
 void Server::prepareSets(fd_set& read_set, fd_set& write_set, fd_set& error_set) {
@@ -58,6 +104,38 @@ void Server::prepareSets(fd_set& read_set, fd_set& write_set, fd_set& error_set)
 
     FD_SET(getSocket(), &read_set);
     FD_SET(getSocket(), &error_set);
+
+    FD_SET(pipe_.getSocket(), &read_set);
+    FD_SET(pipe_.getSocket(), &error_set);
+
+    for (auto& connection : connections_) {
+        FD_SET(connection.getSocket(), &read_set);
+        FD_SET(connection.getSocket(), &error_set);
+
+        if (connection.hasOutgoing()) {
+            FD_SET(connection.getSocket(), &write_set);
+        }
+    }
+}
+
+void Server::prepareOutgoing() {
+    lock_guard<mutex> lock(outgoing_lock_);
+
+    // FIXME: This is probably time-consuming
+    for (auto& information : outgoing_) {
+        // Find right connection
+        auto iterator = find_if(connections_.begin(), connections_.end(), [&information] (auto& connection) {
+            return connection.getId() == information.getId();
+        });
+
+        if (iterator == connections_.end()) {
+            // Not found, ignore
+            continue;
+        }
+
+        auto connection = *iterator;
+        connection.addOutgoing(information.getPacket());
+    }
 }
 
 void Server::run() {
@@ -66,12 +144,17 @@ void Server::run() {
     fd_set error_set;
 
     while (true) {
+        prepareOutgoing();
         prepareSets(read_set, write_set, error_set);
+
+        Log(DEBUG) << "BEFORE SELECT\n";
 
         if (!select(FD_SETSIZE, &read_set, &write_set, &error_set, NULL)) {
             Log(ERROR) << "Failed to select sockets\n";
             return;
         }
+
+        Log(DEBUG) << "RUNNING SELECT\n";
 
         if (FD_ISSET(getSocket(), &error_set)) {
             // Error
@@ -103,6 +186,17 @@ void Server::run() {
             connections_.push_back(connection);
         }
 
+        // Check pipe
+        if (FD_ISSET(pipe_.getSocket(), &read_set)) {
+            Log(DEBUG) << "Pipe was activated, something happened (not an error)\n";
+            pipe_.resetPipe();
+        }
+
+        if (FD_ISSET(pipe_.getSocket(), &error_set)) {
+            Log(ERROR) << "Got pipe error\n";
+            return;
+        }
+
         // Iterate through connections
         #pragma omp parallel for
         for (size_t i = 0; i < connections_.size(); i++) {
@@ -128,10 +222,12 @@ void Server::run() {
             }
         }
 
+        Log(DEBUG) << "Erasing\n";
         // Remove disconnected sockets
         connections_.erase(remove_if(connections_.begin(), connections_.end(), [] (auto& connection) {
             return !connection.isConnected();
         }), connections_.end());
+        Log(DEBUG) << "Done erasing\n";
     }
 }
 
@@ -159,6 +255,12 @@ bool Server::start(int port) {
         socket_ = socket(i->ai_family, i->ai_socktype, i->ai_protocol);
         if (socket_ == -1) {
             continue; // Continue until success
+        }
+
+        // Set re-usable
+        int on = 1;
+        if (setsockopt(socket_, SOL_SOCKET, SO_REUSEADDR, (char*)&on, sizeof(on)) < 0) {
+            Log(WARNING) << "Not reusable address\n";
         }
 
         result = bind(socket_, i->ai_addr, i->ai_addrlen);
@@ -192,4 +294,22 @@ bool Server::start(int port) {
 }
 
 Information Server::get() {
+    unique_lock<mutex> lock(incoming_lock_);
+    incoming_cv_.wait(lock, [this] { return !incoming_.empty(); });
+
+    auto information = incoming_.front();
+    incoming_.pop_front();
+
+    return information;
+}
+
+bool Server::send(const Information& information) {
+    lock_guard<mutex> lock(outgoing_lock_);
+    outgoing_.push_back(information);
+
+    // Also wake up the pipe
+    pipe_.setPipe();
+
+    // In lack of error messages
+    return true;
 }

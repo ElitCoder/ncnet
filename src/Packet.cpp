@@ -1,5 +1,6 @@
 #include "Packet.h"
 #include "InvalidPacketException.h"
+#include "Log.h"
 
 using namespace std;
 
@@ -10,11 +11,14 @@ Packet::Packet() {
 }
 
 void Packet::addRaw(const unsigned char* buffer, int size) {
+    // FIXME: Maybe check for inserting more than necessary? Should be covered though
     data_->insert(data_->end(), buffer, buffer + size);
+    Log(DEBUG) << "Inserting " << size << " bytes\n";
 
-    if (data_->size() > PACKET_HEADER_SIZE && full_size_ == 0) {
+    if (data_->size() >= PACKET_HEADER_SIZE && full_size_ == 0) {
         // Decode integer to get full size
          full_size_ = (data_->at(0) << 24) | (data_->at(1) << 16) | (data_->at(2) << 8) | data_->at(3);
+         Log(DEBUG) << "Decoding packet to " << full_size_ << " bytes size\n";
 
          if (full_size_ == 0) {
              // Don't accept empty packets
@@ -48,4 +52,22 @@ bool Packet::isFinished() const {
     }
 
     return full_size_ == data_->size();
+}
+
+unsigned char* Packet::getData() {
+    return data_->data();
+}
+
+size_t Packet::getSent() const {
+    return sent_;
+}
+
+bool Packet::addSent(int sent) {
+    sent_ += sent;
+
+    return sent_ >= data_->size();
+}
+
+size_t Packet::getSize() const {
+    return data_->size();
 }
