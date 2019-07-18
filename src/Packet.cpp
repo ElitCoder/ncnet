@@ -100,6 +100,10 @@ void Packet::addInt(int value) {
     data_->push_back(value & 0xFF);
 }
 
+unsigned char Packet::getHeader() {
+    return data_->at(read_++);
+}
+
 int Packet::getInt() {
     int value = (data_->at(read_) << 24)        |
                 (data_->at(read_ + 1) << 16)    |

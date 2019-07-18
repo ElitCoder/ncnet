@@ -20,6 +20,7 @@ public:
     // Creating
     void addHeader(unsigned char header);
     void addInt(int value);
+    unsigned char getHeader();
     int getInt();
     void finalize();
 
