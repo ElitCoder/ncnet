@@ -63,6 +63,7 @@ bool Server::start(const string &hostname, int port) {
 
     if (listen(socket_, SOMAXCONN) == -1) {
         Log(ERROR) << "Failed to listen to socket\n";
+        close(socket_);
         return false;
     }
 
