@@ -20,6 +20,8 @@ EventPipe::EventPipe() {
 }
 
 EventPipe::~EventPipe() {
+    lock_guard<mutex> lock(*event_mutex_);
+
     if (mPipes[0] >= 0)
         close(mPipes[0]);
 

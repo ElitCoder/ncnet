@@ -83,6 +83,7 @@ bool Network::read(Connection& connection) {
         Log(DEBUG) << "Processed " << i << " bytes\n";
 
         if (i == 0) {
+            Log(ERROR) << "Fatal assert error, not processing data\n";
             exit(-1);
         }
     }

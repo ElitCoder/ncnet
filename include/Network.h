@@ -20,7 +20,6 @@ public:
     void stop();
 
     Information get();
-    //bool send(const Information& information);
 
 protected:
     // Main network thread
