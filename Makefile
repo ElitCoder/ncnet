@@ -1,50 +1,59 @@
-NAME		:= ncnet
+LIB				:= ncnet
 
-OBJ_FOLDER	:= obj
-SRC_FOLDER	:= src
-LIB_FOLDER	:= lib
-INC_FOLDER	:= include
+SRCS			:= $(wildcard src/*.cpp)
+OBJS			:= $(SRCS:.cpp=.o)
 
-PREFIX		:= /usr
-INST_INC	:= $(PREFIX)/include
-INST_LIB	:= $(PREFIX)/lib
+CXXFLAGS		+= -std=c++14 -Wall -Wextra -pedantic-errors
+CXXFLAGS		+= -g
+CXXFLAGS		+= -fPIC
+CXXFLAGS		+= -fopenmp
 
-CPP_FILES	:= $(wildcard $(SRC_FOLDER)/*.cpp)
-OBJ_FILES	:= $(addprefix $(OBJ_FOLDER)/,$(notdir $(CPP_FILES:.cpp=.o)))
+LDLIBS			+= -lpthread -fopenmp
 
-CXX_FLAGS	:= -std=c++14 -Wall -Wextra -pedantic-errors
-CXX_FLAGS	+= -g
-#CXX_FLAGS	+= -O3
-CXX_FLAGS	+= -fopenmp
-CXX_FLAGS	+= -fPIC
-CXX_FLAGS	+= -I./$(INC_FOLDER)
+PREFIX			:= /usr
+INSTALL_INCLUDE	:= $(PREFIX)/include/$(LIB)
+INSTALL_LIB		:= $(PREFIX)/lib
 
-LDLIBS		:= -lpthread -fopenmp
-LIB_TYPE	:= -shared
-LIB_NAME	:= lib$(NAME).so
-TARGET		:= $(LIB_FOLDER)/$(LIB_NAME)
+# Include headers
+CXXFLAGS		+= -Iinclude
 
-all: build
+# Build both shared and static libraries
+TARGET_STATIC	:= lib/lib$(LIB).a
+TARGET_SHARED	:= lib/lib$(LIB).so
 
+# Test
+TEST_SRCS		:= $(wildcard test/*.cpp)
+TEST_OBJS		:= $(TEST_SRCS:.cpp=.o)
+TEST_TARGET		:= test/test_ncnet
+TEST_LDFLAGS	:= -Llib
+TEST_LDLIBS		:= -l:libncnet.a
+
+.PHONY: all
+all: $(TARGET_SHARED) $(TARGET_STATIC)
+
+.PHONY: test
+test: all $(TEST_TARGET)
+
+.PHONY: clean
 clean:
-	rm -f $(LIB_FOLDER)/* $(OBJ_FOLDER)/*
+	rm -f $(OBJS) $(TARGET_SHARED) $(TARGET_STATIC) $(OBJS:.o=.d)
+	rm -f $(TEST_OBJS) $(TEST_TARGET) $(TEST_OBJS:.o=.d)
 
+.PHONY: install
 install:
-	mkdir -p $(INST_INC)/$(NAME)
-	cp -r $(INC_FOLDER)/* $(INST_INC)/$(NAME)
-	cp $(TARGET) $(INST_LIB)
-	chmod 0755 $(INST_LIB)/$(LIB_NAME)
-	chmod -R 0644 $(INST_INC)/$(NAME)/*
+	cp $(TARGET_SHARED) $(TARGET_STATIC) $(INSTALL_LIB)
+	mkdir -p $(INSTALL_INCLUDE)
+	cp include/*.h $(INSTALL_INCLUDE)
 
-uninstall:
-	rm -rf $(INST_INC)/$(NAME)
-	rm -f $(INST_LIB)/$(LIB_NAME)
+$(TARGET_SHARED): $(OBJS)
+	$(CXX) $(LDFLAGS) -o $(TARGET_SHARED) -shared $^ $(LDLIBS)
 
-build: $(OBJ_FILES)
-	$(CXX) $^ -o $(TARGET) $(LIB_TYPE) $(LDLIBS)
+$(TARGET_STATIC): $(OBJS)
+	ar -rs $(TARGET_STATIC) $(OBJS)
 
-$(OBJ_FOLDER)/%.o: $(SRC_FOLDER)/%.cpp
-	$(CXX) $(CXX_FLAGS) -c -o $@ $<
+$(TEST_TARGET): $(TEST_OBJS)
+	$(CXX) $^ $(LDFLAGS) $(TEST_LDFLAGS) -o $(TEST_TARGET) $(LDLIBS) $(TEST_LDLIBS)
 
-CXX_FLAGS += -MMD
--include $(OBJFILES:.o=.d)
+CXXFLAGS		+= -MMD
+-include $(OBJS:.o=.d)
+-include $(TEST_OBJS:.o=.d)

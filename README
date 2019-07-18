@@ -1,4 +1,2 @@
-ncnet - high performance networking for C++
-
-Installing:
-./install.sh
+# ncnet
+C++ networking library
