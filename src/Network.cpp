@@ -205,6 +205,9 @@ void Network::run() {
         {
             lock_guard<mutex> lock(stop_lock_);
             if (stop_) {
+                // Wake threads waiting for packets
+                incoming_cv_.notify_all();
+
                 // Gracefully exit
                 Log(DEBUG) << "Exiting\n";
                 return;
@@ -298,7 +301,16 @@ void Network::run() {
 
 Information Network::get() {
     unique_lock<mutex> lock(incoming_lock_);
-    incoming_cv_.wait(lock, [this] { return !incoming_.empty(); });
+    incoming_cv_.wait(lock, [this] {
+        lock_guard<mutex> stop_lock(stop_lock_);
+        return stop_ ? true : !incoming_.empty();
+    });
+
+    lock_guard<mutex> stop_lock(stop_lock_);
+    if (stop_) {
+        // Exiting
+        return Information(Packet(), 0);
+    }
 
     auto information = incoming_.front();
     incoming_.pop_front();
