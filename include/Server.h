@@ -6,7 +6,6 @@
 class Server : public Network {
 public:
     virtual bool start(const std::string &hostname, int port);
-    bool send(const Information& information);
 };
 
 #endif

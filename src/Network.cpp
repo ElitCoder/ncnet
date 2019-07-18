@@ -334,3 +334,11 @@ void Network::stop() {
 int Network::at_port() const {
     return port_;
 }
+
+void Network::send(const Packet &packet, size_t peer_id) {
+    lock_guard<mutex> lock(outgoing_lock_);
+    outgoing_.push_back(Information(packet, peer_id));
+
+    // Also wake up the pipe
+    pipe_.setPipe();
+}

@@ -58,14 +58,3 @@ bool Client::start(const string &hostname, int port) {
 
     return true;
 }
-
-bool Client::send(const Packet &packet) {
-    lock_guard<mutex> lock(outgoing_lock_);
-    outgoing_.push_back(Information(packet, 0));
-
-    // Also wake up the pipe
-    pipe_.setPipe();
-
-    // In lack of error messages
-    return true;
-}

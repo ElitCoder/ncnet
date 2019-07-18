@@ -73,14 +73,3 @@ bool Server::start(const string &hostname, int port) {
 
     return success;
 }
-
-bool Server::send(const Information& information) {
-    lock_guard<mutex> lock(outgoing_lock_);
-    outgoing_.push_back(information);
-
-    // Also wake up the pipe
-    pipe_.setPipe();
-
-    // In lack of error messages
-    return true;
-}

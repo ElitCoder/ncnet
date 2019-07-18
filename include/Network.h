@@ -13,6 +13,7 @@ class Network {
 public:
     // Override from sub-classes
     virtual bool start(const std::string &hostname, int port) = 0;
+    virtual void send(const Packet &packet, size_t peer_id = 0);
     // Called by sub-classes
     bool prepareSocket(int fd);
     int getSocket() const;
