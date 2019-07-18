@@ -136,6 +136,9 @@ void Server::prepareOutgoing() {
         auto connection = *iterator;
         connection.addOutgoing(information.getPacket());
     }
+
+    // Clean outgoing packets since they are put in queue or removed
+    outgoing_.clear();
 }
 
 void Server::run() {
