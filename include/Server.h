@@ -12,7 +12,8 @@
 class Server : public Network {
 public:
     bool start(int port);
-    void run();
+    void run(); // Only called by internal thread handling
+    void stop();
 
     Information get();
     bool send(const Information& information);
@@ -32,6 +33,10 @@ private:
     std::mutex outgoing_lock_;
     std::condition_variable outgoing_cv_; // Not needed?
     std::list<Information> outgoing_;
+
+    // If the server should be stopped
+    std::mutex stop_lock_;
+    bool stop_ = false;
 };
 
 #endif

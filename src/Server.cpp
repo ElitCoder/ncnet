@@ -159,6 +159,15 @@ void Server::run() {
 
         Log(DEBUG) << "RUNNING SELECT\n";
 
+        {
+            lock_guard<mutex> lock(stop_lock_);
+            if (stop_) {
+                // Gracefully exit
+                Log(DEBUG) << "Exiting\n";
+                return;
+            }
+        }
+
         if (FD_ISSET(getSocket(), &error_set)) {
             // Error
             Log(ERROR) << "Error in accepting socket\n";
@@ -315,4 +324,17 @@ bool Server::send(const Information& information) {
 
     // In lack of error messages
     return true;
+}
+
+void Server::stop() {
+    {
+        lock_guard<mutex> lock(stop_lock_);
+        stop_ = true;
+
+        // Wake pipe
+        pipe_.setPipe();
+    }
+
+    // Wait for exit
+    network_.join();
 }
