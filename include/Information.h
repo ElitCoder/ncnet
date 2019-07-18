@@ -6,7 +6,7 @@
 
 class Information {
 public:
-    Information(Packet& packet, size_t peer_id);
+    Information(const Packet& packet, size_t peer_id);
 
     size_t getId() const;
     Packet& getPacket();

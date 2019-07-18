@@ -1,6 +1,6 @@
 #include "Information.h"
 
-Information::Information(Packet& packet, size_t peer_id) {
+Information::Information(const Packet& packet, size_t peer_id) {
     packet_ = packet;
     peer_id_ = peer_id;
 }

@@ -2,13 +2,11 @@
 #define CLIENT_H
 
 #include "Network.h"
-//#include "Packet.h"
 
 class Client : public Network {
 public:
-    bool start(const std::string& hostname, int port);
-
-	//Packet get();
+    virtual bool start(const std::string& hostname, int port);
+    bool send(const Packet &packet);
 };
 
 #endif
