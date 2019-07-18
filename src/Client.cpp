@@ -54,6 +54,7 @@ bool Client::start(const string &hostname, int port) {
 
     // Create networking thread and start processing
     network_ = thread(networking, ref(*this));
+    port_ = port;
 
     return true;
 }

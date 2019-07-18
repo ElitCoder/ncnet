@@ -318,3 +318,7 @@ void Network::stop() {
     // Wait for exit
     network_.join();
 }
+
+int Network::at_port() const {
+    return port_;
+}

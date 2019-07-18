@@ -18,6 +18,7 @@ public:
     int getSocket() const;
     void run(); // Only called by internal thread handling
     void stop();
+    int at_port() const;
 
     Information get();
 
@@ -26,6 +27,7 @@ protected:
     std::thread network_;
     int socket_;
     bool is_client_ = false;
+    int port_ = -1;
 
     std::vector<Connection> connections_;
     EventPipe pipe_; // Needed to interrupt when adding queued packets
