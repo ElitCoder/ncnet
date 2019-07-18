@@ -2,9 +2,9 @@
 #include "InvalidPacketException.h"
 #include "Log.h"
 
-using namespace std;
+#include <cassert>
 
-constexpr auto PACKET_HEADER_SIZE = 4;
+using namespace std;
 
 Packet::Packet() {
     data_ = make_shared<vector<unsigned char>>();
@@ -70,4 +70,53 @@ bool Packet::addSent(int sent) {
 
 size_t Packet::getSize() const {
     return data_->size();
+}
+
+bool Packet::isFinalized() const {
+    return finalized_;
+}
+
+void Packet::addHeader(unsigned char header) {
+    if (isFinalized()) {
+        assert(0); // Mistake
+    }
+
+    // Add size header placeholder
+    data_->resize(PACKET_HEADER_SIZE);
+    fill(data_->begin(), data_->end(), 0);
+
+    // Add header
+    data_->push_back(header);
+}
+
+void Packet::addInt(int value) {
+    if (isFinalized()) {
+        assert(0); // Mistake
+    }
+
+    data_->push_back((value >> 24) & 0xFF);
+    data_->push_back((value >> 16) & 0xFF);
+    data_->push_back((value >> 8) & 0xFF);
+    data_->push_back(value & 0xFF);
+}
+
+int Packet::getInt() {
+    int value = (data_->at(read_) << 24)        |
+                (data_->at(read_ + 1) << 16)    |
+                (data_->at(read_ + 2) << 8)     |
+                (data_->at(read_ + 3));
+    read_ += 4;
+    return value;
+}
+
+void Packet::finalize() {
+    if (isFinalized()) {
+        assert(0);
+    }
+
+    for (int i = 0; i < PACKET_HEADER_SIZE; i++) {
+        data_->at(i) = data_->size() >> (24 - i * 8) & 0xFF;
+    }
+
+    finalized_ = true;
 }

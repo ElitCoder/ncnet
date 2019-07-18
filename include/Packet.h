@@ -4,6 +4,8 @@
 #include <memory>
 #include <vector>
 
+constexpr auto PACKET_HEADER_SIZE = 4;
+
 class Packet {
 public:
     // Common
@@ -14,6 +16,12 @@ public:
     bool hasFullSize() const;
     size_t getLeft() const;
     bool isFinished() const;
+
+    // Creating
+    void addHeader(unsigned char header);
+    void addInt(int value);
+    int getInt();
+    void finalize();
 
     // Sending
     unsigned char* getData();
@@ -27,6 +35,13 @@ private:
 
     // Receiving
     size_t full_size_ = 0;
+
+    // Creating
+    bool isFinalized() const;
+    bool finalized_ = false;
+
+    // Reading
+    size_t read_ = PACKET_HEADER_SIZE;
 
     // Sending
     size_t sent_ = 0;
