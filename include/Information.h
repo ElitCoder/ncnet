@@ -6,8 +6,10 @@
 
 class Information {
 public:
+    Information();
     Information(const Packet& packet, size_t peer_id);
 
+    void setId(size_t peer_id);
     size_t getId() const;
     Packet& getPacket();
 

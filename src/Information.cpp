@@ -1,7 +1,13 @@
 #include "Information.h"
 
+Information::Information() {}
+
 Information::Information(const Packet& packet, size_t peer_id) {
     packet_ = packet;
+    peer_id_ = peer_id;
+}
+
+void Information::setId(size_t peer_id) {
     peer_id_ = peer_id;
 }
 
