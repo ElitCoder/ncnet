@@ -20,8 +20,10 @@ public:
     // Creating
     void addHeader(unsigned char header);
     void addInt(int value);
+    void addString(const std::string &str);
     unsigned char getHeader();
     int getInt();
+    std::string getString();
     void finalize();
 
     // Sending

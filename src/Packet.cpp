@@ -100,6 +100,15 @@ void Packet::addInt(int value) {
     data_->push_back(value & 0xFF);
 }
 
+void Packet::addString(const string& str) {
+    if (isFinalized()) {
+        assert(0); // Mistake
+    }
+
+    addInt(str.length());
+    data_->insert(data_->end(), str.begin(), str.end());
+}
+
 unsigned char Packet::getHeader() {
     return data_->at(read_++);
 }
@@ -111,6 +120,13 @@ int Packet::getInt() {
                 (data_->at(read_ + 3));
     read_ += 4;
     return value;
+}
+
+string Packet::getString() {
+    auto length = getInt();
+    string str(data_->begin() + read_, data_->begin() + read_ + length);
+    read_ += length;
+    return str;
 }
 
 void Packet::finalize() {
