@@ -109,6 +109,14 @@ void Packet::addString(const string& str) {
     data_->insert(data_->end(), str.begin(), str.end());
 }
 
+void Packet::addBool(bool value) {
+    if (isFinalized()) {
+        assert(0); // Mistake
+    }
+
+    data_->push_back(value);
+}
+
 unsigned char Packet::getHeader() {
     return data_->at(read_++);
 }
@@ -127,6 +135,10 @@ string Packet::getString() {
     string str(data_->begin() + read_, data_->begin() + read_ + length);
     read_ += length;
     return str;
+}
+
+bool Packet::getBool() {
+    return data_->at(read_++);
 }
 
 void Packet::finalize() {

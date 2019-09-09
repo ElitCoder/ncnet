@@ -21,9 +21,11 @@ public:
     void addHeader(unsigned char header);
     void addInt(int value);
     void addString(const std::string &str);
+    void addBool(bool value);
     unsigned char getHeader();
     int getInt();
     std::string getString();
+    bool getBool();
     void finalize();
 
     // Sending
