@@ -106,6 +106,8 @@ bool Network::read(Connection& connection) {
 bool Network::write(Connection& connection) {
     auto& packet = connection.getOutgoing();
 
+    Log(DEBUG) << "Writing data to " << connection.getId() << endl;
+
     int sent = ::send(connection.getSocket(), packet.getData() + packet.getSent(), packet.getSize() - packet.getSent(), 0);
     if (sent <= 0) {
         return false;
@@ -150,6 +152,7 @@ void Network::prepareOutgoing() {
 
     // When we're in client-mode, all packets should go to the server
     if (is_client_) {
+        Log(DEBUG) << "Preparing outgoing for CLIENTS\n";
         if (connections_.empty()) {
             // This case already handled by the main loop
         } else {
@@ -158,6 +161,7 @@ void Network::prepareOutgoing() {
             }
         }
     } else {
+        Log(DEBUG) << "Preparing outgoing for SERVERS\n";
         // FIXME: This is probably time-consuming
         for (auto& information : outgoing_) {
             // Find right connection
@@ -166,12 +170,12 @@ void Network::prepareOutgoing() {
             });
 
             if (iterator == connections_.end()) {
+                Log(DEBUG) << "Did not find connection with ID " << information.getId() << endl;
                 // Not found, ignore
                 continue;
             }
 
-            auto connection = *iterator;
-            connection.addOutgoing(information.getPacket());
+            iterator->addOutgoing(information.getPacket());
         }
     }
 
@@ -240,6 +244,7 @@ void Network::run() {
 
         // Check pipe
         if (FD_ISSET(pipe_.getSocket(), &read_set)) {
+            Log(DEBUG) << "Activating pipe\n";
             pipe_.resetPipe();
         }
 
@@ -266,6 +271,7 @@ void Network::run() {
             }
 
             if (FD_ISSET(connection.getSocket(), &write_set)) {
+                Log(DEBUG) << "IN HERE" << endl;
                 // Write data to connection
                 if (!write(connection)) {
                     connection.disconnect();
@@ -275,6 +281,9 @@ void Network::run() {
 
         // Remove disconnected sockets
         connections_.erase(remove_if(connections_.begin(), connections_.end(), [] (auto& connection) {
+            if (!connection.isConnected()) {
+                Log(DEBUG) << "Removing connection " << connection.getId() << endl;
+            }
             return !connection.isConnected();
         }), connections_.end());
 
