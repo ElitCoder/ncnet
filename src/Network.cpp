@@ -60,10 +60,7 @@ bool Network::read(Connection& connection) {
     constexpr auto BUFFER_SIZE = 1024 * 1024;
     static vector<unsigned char> buffer;
 
-    Log(DEBUG) << "Reading data from " << connection.getId() << endl;
-
     if (buffer.empty()) {
-        Log(DEBUG) << "Resizing static buffer\n";
         buffer.resize(BUFFER_SIZE);
     }
 
@@ -72,23 +69,17 @@ bool Network::read(Connection& connection) {
         return false;
     }
 
-    Log(DEBUG) << "Processing " << received << " bytes\n";
-
     // Process buffer
     int processed = 0;
     while (processed < received) {
         auto i = processBuffer(connection.getPacketSkeleton(), buffer.data() + processed, received - processed);
         processed += i;
 
-        Log(DEBUG) << "Processed " << i << " bytes\n";
-
         if (i == 0) {
             Log(ERROR) << "Fatal assert error, not processing data\n";
             exit(-1);
         }
     }
-
-    Log(DEBUG) << "Processing done\n";
 
     list<Information> incoming;
 
@@ -249,7 +240,6 @@ void Network::run() {
 
         // Check pipe
         if (FD_ISSET(pipe_.getSocket(), &read_set)) {
-            Log(DEBUG) << "Pipe was activated, something happened (not an error)\n";
             pipe_.resetPipe();
         }
 
@@ -283,12 +273,10 @@ void Network::run() {
             }
         }
 
-        Log(DEBUG) << "Erasing\n";
         // Remove disconnected sockets
         connections_.erase(remove_if(connections_.begin(), connections_.end(), [] (auto& connection) {
             return !connection.isConnected();
         }), connections_.end());
-        Log(DEBUG) << "Done erasing\n";
 
         // If we're in client mode, losing the connection is fatal
         if (is_client_ && connections_.empty()) {
@@ -312,9 +300,11 @@ Information Network::get() {
         return Information(Packet(), 0);
     }
 
+
     auto information = incoming_.front();
     incoming_.pop_front();
 
+    Log(DEBUG) << "Returning packet to peer " << information.getId() << endl;
     return information;
 }
 
@@ -338,6 +328,8 @@ int Network::at_port() const {
 void Network::send(const Packet &packet, size_t peer_id) {
     lock_guard<mutex> lock(outgoing_lock_);
     outgoing_.push_back(Information(packet, peer_id));
+
+    Log(DEBUG) << "Pushing packet to peer " << peer_id << endl;
 
     // Also wake up the pipe
     pipe_.setPipe();
