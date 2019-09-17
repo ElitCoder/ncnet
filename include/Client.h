@@ -1,11 +1,10 @@
-#ifndef CLIENT_H
-#define CLIENT_H
+#pragma once
 
 #include "Network.h"
 
-class Client : public Network {
-public:
-    virtual bool start(const std::string& hostname, int port);
-};
-
-#endif
+namespace ncnet {
+    class Client : public Network {
+    public:
+        virtual bool start(const std::string& hostname, int port);
+    };
+}

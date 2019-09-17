@@ -1,11 +1,10 @@
-#ifndef SERVER_H
-#define SERVER_H
+#pragma once
 
 #include "Network.h"
 
-class Server : public Network {
-public:
-    virtual bool start(const std::string &hostname, int port);
-};
-
-#endif
+namespace ncnet {
+    class Server : public Network {
+    public:
+        virtual bool start(const std::string &hostname, int port);
+    };
+}

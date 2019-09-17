@@ -1,30 +1,34 @@
-#ifndef LOG_H
-#define LOG_H
+#pragma once
 
-#include <mutex>
 #include <iostream>
 #include <sstream>
 
-enum {
-	DEBUG,
-	INFORMATION,
-	NONE,
-	ERROR,
-	WARNING,
-	NETWORK,
-	GAME
-};
+namespace ncnet {
+    constexpr auto DEBUG = "DEBUG";
+    constexpr auto WARN = "WARN";
+    constexpr auto ERROR = "ERROR";
+    constexpr auto INFO = "INFO";
 
-class Log : public std::ostringstream {
-public:
-	Log();
-	Log(int level);
+    class Log : public std::ostringstream {
+    public:
+        Log() {}
+        Log(std::string prefix) : prefix_(prefix) {}
+        ~Log() {
+            if (silent_) {
+                return;
+            }
 
-	~Log();
+            if (prefix_ != "") {
+                std::cout << "[" << prefix_ << "] ";
+            }
 
-private:
-	static std::mutex print_mutex_;
-	int level_;
-};
+            std::cout << str() << std::endl;
+        }
 
-#endif
+        static void set_silent(bool silent) { silent_ = silent; }
+
+    private:
+        static bool silent_;
+        std::string prefix_ = "";
+    };
+}

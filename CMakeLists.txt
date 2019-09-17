@@ -9,8 +9,6 @@ set(SRCS
         src/Client.cpp
         src/Connection.cpp
         src/EventPipe.cpp
-        src/Information.cpp
-        src/Log.cpp
         src/Network.cpp
         src/Packet.cpp
         src/Server.cpp)
@@ -42,13 +40,9 @@ install(TARGETS ncnet
 
 install(FILES
             include/Client.h
-            include/Connection.h
-            include/EventPipe.h
-            include/Information.h
-            include/InvalidPacketException.h
-            include/Log.h
             include/Network.h
             include/Packet.h
             include/Server.h
+            include/Transfer.h
         DESTINATION
             include/ncnet)

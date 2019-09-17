@@ -1,22 +1,21 @@
-#ifndef EVENT_PIPE_H
-#define EVENT_PIPE_H
+#pragma once
 
 #include <memory>
 #include <mutex>
 
-class EventPipe {
-public:
-    explicit EventPipe();
-    ~EventPipe();
+namespace ncnet {
+    class EventPipe {
+    public:
+        explicit EventPipe();
+        ~EventPipe();
 
-    void setPipe();
-    void resetPipe();
+        void setPipe();
+        void resetPipe();
 
-    int getSocket();
+        int getSocket();
 
-private:
-    int mPipes[2];
-    std::shared_ptr<std::mutex> event_mutex_;
-};
-
-#endif
+    private:
+        int mPipes[2];
+        std::shared_ptr<std::mutex> event_mutex_;
+    };
+}
