@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <netinet/tcp.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <netdb.h>
 #include <algorithm>
 
@@ -152,7 +153,6 @@ void Network::prepareOutgoing() {
 
     // When we're in client-mode, all packets should go to the server
     if (is_client_) {
-        Log(DEBUG) << "Preparing outgoing for CLIENTS\n";
         if (connections_.empty()) {
             // This case already handled by the main loop
         } else {
@@ -161,7 +161,6 @@ void Network::prepareOutgoing() {
             }
         }
     } else {
-        Log(DEBUG) << "Preparing outgoing for SERVERS\n";
         // FIXME: This is probably time-consuming
         for (auto& information : outgoing_) {
             // Find right connection
@@ -227,13 +226,8 @@ void Network::run() {
                     continue;
                 }
 
-                string hbuf(NI_MAXHOST, '\0');
-                string sbuf(NI_MAXSERV, '\0');
-                if (getnameinfo(&in_addr, in_len, (char*)hbuf.data(), hbuf.size(), (char*)sbuf.data(), sbuf.size(), NI_NUMERICHOST | NI_NUMERICSERV)) {
-                    Log(INFORMATION) << "Accepted connection on " << new_fd << "(host=" << hbuf << ", port=" << sbuf << ")" << "\n";
-                } else {
-                    Log(WARNING) << "Failed to retrieve information about the connection\n";
-                }
+                auto ip = inet_ntoa(((sockaddr_in*)&in_addr)->sin_addr);
+                Log(INFORMATION) << "Client connected (IP:" << ip << ")\n";
 
                 prepareSocket(new_fd);
                 Connection connection;
@@ -271,7 +265,6 @@ void Network::run() {
             }
 
             if (FD_ISSET(connection.getSocket(), &write_set)) {
-                Log(DEBUG) << "IN HERE" << endl;
                 // Write data to connection
                 if (!write(connection)) {
                     connection.disconnect();
