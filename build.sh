@@ -1,3 +1,5 @@
-# Build with all cores
-cores=`grep --count ^processor /proc/cpuinfo`
-make -j $cores
+# Build (Linux)
+mkdir -p build && cd build
+cmake -G Ninja ..
+ninja
+cd ..
