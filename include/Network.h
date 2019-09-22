@@ -13,7 +13,7 @@ namespace ncnet {
     class Network {
     public:
         static bool prepare_socket(int fd);
-        virtual void send_packet(const Packet &packet, size_t peer_id = 0) final;
+        virtual void send_packet(Packet &packet, size_t peer_id = 0) final;
         virtual void disconnect(size_t id) final; // Disconnect connection
         BP_SET_GET(disconnect_callback, const std::function<void(size_t)> &)
         BP_GET(socket, int)

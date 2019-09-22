@@ -14,10 +14,6 @@ namespace ncnet {
         Log() {}
         Log(std::string prefix) : prefix_(prefix) {}
         ~Log() {
-            if (silent_) {
-                return;
-            }
-
             if (prefix_ != "") {
                 std::cout << "[" << prefix_ << "] ";
             }
@@ -25,10 +21,7 @@ namespace ncnet {
             std::cout << str() << std::endl;
         }
 
-        static void set_silent(bool silent) { silent_ = silent; }
-
     private:
-        static bool silent_;
         std::string prefix_ = "";
     };
 }

@@ -15,7 +15,6 @@ namespace ncnet {
 
         // Status
         void disconnect();
-        bool is_connected() const;
         bool has_incoming_packets() const;
         bool has_outgoing_packets() const;
 

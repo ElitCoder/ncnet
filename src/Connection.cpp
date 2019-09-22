@@ -18,7 +18,7 @@ namespace ncnet {
     }
 
     Packet& Connection::get_packet_skeleton() {
-        if (incoming_.empty() || incoming_.back().isFinished()) {
+        if (incoming_.empty() || incoming_.back().has_received_full_packet()) {
             incoming_.emplace_back();
         }
 
@@ -26,7 +26,7 @@ namespace ncnet {
     }
 
     bool Connection::has_incoming_packets() const {
-        return incoming_.empty() ? false : incoming_.front().isFinished();
+        return incoming_.empty() ? false : incoming_.front().has_received_full_packet();
     }
 
     Packet Connection::get_incoming_packet() {

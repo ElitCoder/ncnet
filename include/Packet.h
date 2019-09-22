@@ -16,15 +16,28 @@ namespace ncnet {
         explicit Packet();
 
         // Receiving
-        unsigned char *get_writable_buffer(size_t min_size); // Returns allocated buffer
-        void buffer_position_changed(size_t size); // How much data was inserted?
-        size_t left_in_packet() const;
+        unsigned char *get_writable_buffer(size_t size); // Returns allocated buffer
+        bool added_data(size_t size); // How much data was inserted? Disconnect on false
+        size_t left_in_packet() const; // Bytes left to receive
+        bool has_received_full_packet() const; // If full packet is received
+
+        // Sending
+        unsigned char *get_send_buffer(); // Get current array for sending
+        size_t left_to_send() const; // Bytes left to send
+        bool sent_data(size_t sent); // Sent bytes
 
         // Creating
+        void finalize(); // Calculate header size and packet data
         template<class T>
-        Packet &operator<<(T &val) {
-            std::stringstream stream;
-            stream << std::skipws << val;
+        Packet &operator<<(T val) {
+            if (fixed_) {
+                // Programmer fault
+                handle_error("Packet already fixed");
+                return *this;
+            }
+
+            std::ostringstream stream;
+            stream << val;
             if (stream.fail()) {
                 // Data type not supported
                 // Insert empty string
@@ -33,10 +46,10 @@ namespace ncnet {
             }
 
             // Otherwise output to string and add
-            std::string string_val;
-            stream >> std::skipws >> string_val;
+            auto string_val = stream.str();
             add_length_prefix(string_val);
             data_->insert(data_->end(), string_val.begin(), string_val.end());
+            return *this;
         }
 
         // Reading
@@ -73,102 +86,22 @@ namespace ncnet {
     private:
         // Prefix inserted value with string length as in [length prefix length][length prefix][actual string]
         void add_length_prefix(const std::string &val);
-        void handle_error(const std::string &message); // Do something clever with errors
+        void handle_error(const std::string &message) const; // Do something clever with errors
 
+        // Common
         DataType data_;
 
-        size_t read_position_ = 0; // Current reading position
-    };
-
-#if 0
-    class Packet {
-    public:
-        // Common
-        explicit Packet();
-
         // Creating
-        template<class T>
-        Packet& operator<<(T &val) {
-            std::stringstream stream;
-            stream << val;
-            if (stream.fail()) {
-                // Data type not supported
-                // Insert empty string
-                handle_error("Invalid input type");
-                return *this;
-            }
-            // Otherwise output to string and add
-            std::string string_val;
-            stream >> string_val;
-            auto &data = get_writable_data();
-            add_length_prefix(data, string_val);
-            data->insert(data.end(), string_val.begin(), string_val.end());
-        }
-
-        // Reading
-        // TODO
-
-    private:
-        // Prefix inserted value with string length as in [length prefix length][length prefix][actual string]
-        void add_length_prefix(DataType &data, const std::string &val);
-        void handle_error(const std::string &message); // Do something clever with errors
-
-        DataType &get_readable_data(); // Returns a readable vector
-        DataType &get_writable_data(); // Returns a writable vector
-
-        std::vector<Memory> data_; // Data pointers
-
-        bool fixed_ = false; // Header size calculated
-
-    };
-#endif
-#if 0
-    constexpr auto PACKET_HEADER_SIZE = 4;
-
-    class Packet {
-    public:
-        // Common
-        Packet();
+        bool fixed_ = false; // Allow no more insertions
 
         // Receiving
-        void addRaw(const unsigned char* buffer, int size);
-        bool hasFullSize() const;
-        size_t getLeft() const;
-        bool isFinished() const;
-
-        // Creating
-        void addHeader(unsigned char header);
-        void addInt(int value);
-        void addString(const std::string &str);
-        void addBool(bool value);
-        unsigned char getHeader();
-        int getInt();
-        std::string getString();
-        bool getBool();
-        void finalize();
-
-        // Sending
-        unsigned char* getData();
-        size_t getSent() const;
-        bool addSent(int sent);
-        size_t getSize() const;
-
-    private:
-        // Common
-        std::shared_ptr<std::vector<unsigned char>> data_;
-
-        // Receiving
+        size_t added_ = 0; // Actually received bytes
         size_t full_size_ = 0;
 
-        // Creating
-        bool isFinalized() const;
-        bool finalized_ = false;
+        // Sending
+        size_t sent_ = 0; // Actually sent bytes
 
         // Reading
-        size_t read_ = PACKET_HEADER_SIZE;
-
-        // Sending
-        size_t sent_ = 0;
+        size_t read_position_ = PACKET_HEADER_SIZE; // Current reading position
     };
-#endif
 }

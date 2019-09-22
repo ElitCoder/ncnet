@@ -14,26 +14,6 @@
 using namespace std;
 
 namespace ncnet {
-    static int process_buffer(Packet& packet, const unsigned char* buffer, int size) {
-        size_t left = packet.getLeft(); // Returns left for header or left of packet
-
-        if (left > (unsigned int)size) {
-            left = size;
-        }
-
-        try {
-            packet.addRaw(buffer, left);
-        } catch (...) {
-            Log(WARN) << "Bad packet, throwing";
-        }
-
-        return left;
-    }
-
-    //
-    // API
-    //
-
     bool Network::prepare_socket(int fd) {
         // Just set non-blocking for now
         int flags = fcntl(fd, F_GETFL, 0);
@@ -57,30 +37,27 @@ namespace ncnet {
     }
 
     bool Network::read_data(Connection& connection) {
-        constexpr auto BUFFER_SIZE = 1024 * 1024;
-        vector<unsigned char> buffer;
-        buffer.resize(BUFFER_SIZE);
+        auto &packet = connection.get_packet_skeleton();
+        auto left = packet.left_in_packet();
+        unsigned char *buffer;
+        try {
+            buffer = packet.get_writable_buffer(left);
+        } catch (...) {
+            // Bad packet size
+            Log(WARN) << "Bad packet size detected, disconnecting client";
+            return false;
+        }
 
-        int received = recv(connection.get_socket(), buffer.data(), BUFFER_SIZE, 0);
+        auto received = recv(connection.get_socket(), buffer, left, 0);
         if (received <= 0) {
             if (received == -1 && errno == -EAGAIN) {
                 return true; // Wait until next call
             }
-            return false; // Error or disconnected
+            return false; // Error or disconnect
         }
 
-        // Process buffer
-        int processed = 0;
-        while (processed < received) {
-            auto i = process_buffer(connection.get_packet_skeleton(), buffer.data() + processed, received - processed);
-            processed += i;
-
-            // TODO: Can this even happen?
-            if (i == 0) {
-                Log(ERROR) << "Fatal assert error, not processing data";
-                assert(false);
-            }
-        }
+        // Notify data was added
+        packet.added_data(received);
 
         list<Transfer> incoming;
         // See if any packets are complete
@@ -107,8 +84,7 @@ namespace ncnet {
         auto& packet = connection.get_outgoing_packet();
 
         Log(DEBUG) << "Writing data to " << connection.get_id();
-
-        int sent = send(connection.get_socket(), packet.getData() + packet.getSent(), packet.getSize() - packet.getSent(), 0);
+        auto sent = send(connection.get_socket(), packet.get_send_buffer(), packet.left_to_send(), 0);
         if (sent <= 0) {
             if (sent == -1 && errno == -EAGAIN) {
                 return true; // Wait for next call
@@ -116,7 +92,7 @@ namespace ncnet {
             return false; // Error or disconnected
         }
 
-        auto fully = packet.addSent(sent);
+        auto fully = packet.sent_data(sent);
         if (fully) {
             // Remove packet, it's fully sent
             connection.pop_outgoing();
@@ -282,7 +258,7 @@ namespace ncnet {
             #pragma omp parallel for
             for (size_t i = 0; i < connections_.size(); i++) {
                 auto& connection = connections_.at(i);
-                if (!connection.is_connected()) {
+                if (!connection.get_connected()) {
                     // Already gone
                     continue;
                 }
@@ -309,14 +285,14 @@ namespace ncnet {
 
             // Remove disconnected sockets
             connections_.erase(remove_if(connections_.begin(), connections_.end(), [this] (auto& connection) {
-                if (!connection.is_connected()) {
+                if (!connection.get_connected()) {
                     Log(DEBUG) << "Removing connection " << connection.get_id();
                     // Call disconnect callback if registered
                     if (get_disconnect_callback() != nullptr) {
                         get_disconnect_callback()(connection.get_id());
                     }
                 }
-                return !connection.is_connected();
+                return !connection.get_connected();
             }), connections_.end());
 
             // If we're in client mode, losing the connection is fatal
@@ -363,8 +339,9 @@ namespace ncnet {
         network_.join();
     }
 
-    void Network::send_packet(const Packet &packet, size_t peer_id) {
+    void Network::send_packet(Packet &packet, size_t peer_id) {
         lock_guard<mutex> lock(outgoing_lock_);
+        packet.finalize(); // Calculate headers if not done
         outgoing_.push_back(Transfer(peer_id, packet));
 
         Log(DEBUG) << "Pushing packet to peer " << peer_id;

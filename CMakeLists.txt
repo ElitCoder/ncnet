@@ -46,5 +46,7 @@ install(FILES
             include/Server.h
             include/Transfer.h
             include/EventPipe.h
+            include/Boilerplate.h
+            include/Log.h
         DESTINATION
             include/ncnet)
