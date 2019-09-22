@@ -6,6 +6,18 @@
 using namespace std;
 
 namespace ncnet {
+    void Packet::add_length_prefix(const string &val) {
+        auto length = to_string(val.size());
+        data_->push_back(length.size());
+        data_->insert(data_->end(), length.begin(), length.end());
+    }
+
+    void Packet::handle_error(const string &message) {
+        Log(ERROR) << "Error in packet (" << message << "), exiting";
+        assert(false);
+    }
+
+#if 0
     Packet::Packet() {
         data_ = make_shared<vector<unsigned char>>();
     }
@@ -152,4 +164,5 @@ namespace ncnet {
 
         finalized_ = true;
     }
+#endif
 }
