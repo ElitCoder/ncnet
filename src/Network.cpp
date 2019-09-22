@@ -205,9 +205,10 @@ namespace ncnet {
                     incoming_cv_.notify_all();
 
                     // Close all socket connections
-                    for_each(connections_.begin(), connections_.end(), [] (auto &connection) {
-                        connection.disconnect();
-                    });
+                    #pragma omp parallel for
+                    for (size_t i = 0; i < connections_.size(); i++) {
+                        connections_.at(i).disconnect();
+                    }
 
                     // Close server socket
                     close(get_socket());
@@ -257,10 +258,34 @@ namespace ncnet {
                 return;
             }
 
+            // Check for disconnecting connections
+            {
+                lock_guard<mutex> lock(disconnect_lock_);
+                #pragma omp parallel for
+                for (size_t i = 0; i < disconnect_connections_.size(); i++) {
+                    auto id = disconnect_connections_.at(i);
+                    auto iterator = find_if(connections_.begin(), connections_.end(), [&id] (auto &connection) {
+                        return connection.get_id() == id;
+                    });
+
+                    if (iterator == connections_.end()) {
+                        Log(WARN) << "Failed to find disconnecting client " << id;
+                        continue;
+                    }
+
+                    // Disconnect
+                    iterator->disconnect();
+                }
+            }
+
             // Iterate through connections
             #pragma omp parallel for
             for (size_t i = 0; i < connections_.size(); i++) {
                 auto& connection = connections_.at(i);
+                if (!connection.is_connected()) {
+                    // Already gone
+                    continue;
+                }
 
                 if (FD_ISSET(connection.get_socket(), &error_set)) {
                     Log(WARN) << "Error on socket " << connection.get_socket();
@@ -342,6 +367,14 @@ namespace ncnet {
         Log(DEBUG) << "Pushing packet to peer " << peer_id;
 
         // Also wake up the pipe
+        pipe_.activate();
+    }
+
+    void Network::disconnect(size_t id) {
+        lock_guard<mutex> lock(disconnect_lock_);
+        disconnect_connections_.push_back(id);
+
+        // Wake pipe to process
         pipe_.activate();
     }
 }

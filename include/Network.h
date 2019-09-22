@@ -13,6 +13,7 @@ namespace ncnet {
     public:
         static bool prepare_socket(int fd);
         virtual void send_packet(const Packet &packet, size_t peer_id = 0) final;
+        virtual void disconnect(size_t id) final; // Disconnect connection
         BP_GET(socket, int)
         BP_GET(port, int)
 
@@ -45,7 +46,11 @@ namespace ncnet {
         std::condition_variable incoming_cv_;
         std::list<Transfer> incoming_;
         std::mutex outgoing_lock_;
-        std::list<Transfer> outgoing_; // Outgoing packet queue
+        std::vector<Transfer> outgoing_; // Outgoing packet queue
+
+        // Disconnecting
+        std::mutex disconnect_lock_;
+        std::vector<size_t> disconnect_connections_;
 
         // If the network should be stopped
         std::mutex stop_lock_;
