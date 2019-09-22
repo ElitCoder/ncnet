@@ -78,7 +78,7 @@ namespace ncnet {
             // TODO: Can this even happen?
             if (i == 0) {
                 Log(ERROR) << "Fatal assert error, not processing data";
-                assert(true);
+                assert(false);
             }
         }
 
