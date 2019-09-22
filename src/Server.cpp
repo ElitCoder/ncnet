@@ -60,7 +60,7 @@ namespace ncnet {
         }
 
         // Non-blocking mode
-        prepareSocket(socket_);
+        prepare_socket(socket_);
 
         if (listen(socket_, SOMAXCONN) == -1) {
             Log(ERROR) << "Failed to listen to socket";

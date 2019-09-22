@@ -9,13 +9,13 @@ namespace ncnet {
         explicit EventPipe();
         ~EventPipe();
 
-        void setPipe();
-        void resetPipe();
+        void activate(); // Trigger pipe socket
+        void reset(); // Reset pipe socket
 
-        int getSocket();
+        int get_socket(); // Returns writable pipe
 
     private:
-        int mPipes[2];
+        int pipes_[2] = { -1, -1 };
         std::shared_ptr<std::mutex> event_mutex_;
     };
 }

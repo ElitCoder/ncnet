@@ -2,33 +2,22 @@
 #include "Log.h"
 
 #include <unistd.h>
+#include <cassert>
 
 using namespace std;
 
 namespace ncnet {
-    void Connection::setSocket(int fd) {
-        socket_ = fd;
-
-        // This is only done once, so set ID here
+    Connection::Connection() {
         static size_t id;
         id_ = ++id;
     }
 
-    int Connection::getSocket() const {
-        return socket_;
-    }
-
     void Connection::disconnect() {
-        disconnected_ = true;
-
+        connected_ = false;
         close(socket_);
     }
 
-    bool Connection::isConnected() const {
-        return !disconnected_;
-    }
-
-    Packet& Connection::getPacketSkeleton() {
+    Packet& Connection::get_packet_skeleton() {
         if (incoming_.empty() || incoming_.back().isFinished()) {
             incoming_.emplace_back();
         }
@@ -36,18 +25,12 @@ namespace ncnet {
         return incoming_.back();
     }
 
-    size_t Connection::getId() const {
-        return id_;
-    }
-
-    bool Connection::hasIncoming() const {
+    bool Connection::has_incoming_packets() const {
         return incoming_.empty() ? false : incoming_.front().isFinished();
     }
 
-    Packet Connection::getIncoming() {
-        if (!hasIncoming()) {
-            Log(WARN) << "Trying to retrieve incoming packets when there are none";
-        }
+    Packet Connection::get_incoming_packet() {
+        assert(has_incoming_packets());
 
         auto packet = incoming_.front();
         incoming_.pop_front();
@@ -55,19 +38,20 @@ namespace ncnet {
         return packet;
     }
 
-    bool Connection::hasOutgoing() const {
+    bool Connection::has_outgoing_packets() const {
         return !outgoing_.empty();
     }
 
-    Packet& Connection::getOutgoing() {
+    Packet& Connection::get_outgoing_packet() {
+        assert(!outgoing_.empty());
         return outgoing_.front();
     }
 
-    void Connection::doneOutgoing() {
+    void Connection::pop_outgoing() {
         outgoing_.pop_front();
     }
 
-    void Connection::addOutgoing(Packet& packet) {
+    void Connection::add_outgoing_packet(const Packet& packet) {
         outgoing_.push_back(packet);
     }
 }

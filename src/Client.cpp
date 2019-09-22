@@ -18,7 +18,7 @@ namespace ncnet {
     bool Client::start(const string &hostname, int port) {
         socket_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         if (socket_ < 0) {
-            cout << "Failed to create main socket";
+            Log(ERROR) << "Failed to create main socket";
             return false;
         }
 
@@ -27,7 +27,7 @@ namespace ncnet {
 
         hostent *hp = gethostbyname(hostname.c_str());
         if (!hp) {
-            cout << "Could not resolve DNS hostname " << hostname;
+            Log(ERROR) << "Could not resolve DNS hostname " << hostname;
             close(socket_);
             return false;
         }
@@ -36,20 +36,20 @@ namespace ncnet {
         address.sin_port = htons(port);
 
         if (connect(socket_, reinterpret_cast<sockaddr*>(&address), sizeof(address)) < 0) {
-            cout << "Could not connect to " << hostname << ":" << port;
+            Log(WARN) << "Could not connect to " << hostname << ":" << port;
             close(socket_);
             return false;
         }
 
         // Set non-blocking and TCP_NODELAY
-        prepareSocket(socket_);
+        prepare_socket(socket_);
 
         // Mark as client-mode
         is_client_ = true;
 
         // Add server as only connection
         Connection connection;
-        connection.setSocket(socket_);
+        connection.set_socket(socket_);
         connections_.push_back(connection);
 
         Log(INFO) << "Connected to " << hostname << ":" << port;

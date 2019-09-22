@@ -41,8 +41,10 @@ install(TARGETS ncnet
 install(FILES
             include/Client.h
             include/Network.h
+            include/Connection.h
             include/Packet.h
             include/Server.h
             include/Transfer.h
+            include/EventPipe.h
         DESTINATION
             include/ncnet)

@@ -8,11 +8,13 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <algorithm>
+#include <cassert>
+#include <unistd.h>
 
 using namespace std;
 
 namespace ncnet {
-    static int processBuffer(Packet& packet, const unsigned char* buffer, int size) {
+    static int process_buffer(Packet& packet, const unsigned char* buffer, int size) {
         size_t left = packet.getLeft(); // Returns left for header or left of packet
 
         if (left > (unsigned int)size) {
@@ -32,11 +34,11 @@ namespace ncnet {
     // API
     //
 
-    bool Network::prepareSocket(int fd) {
+    bool Network::prepare_socket(int fd) {
         // Just set non-blocking for now
         int flags = fcntl(fd, F_GETFL, 0);
         if (flags == -1) {
-            Log(WARN) << "Failed to get flags from fd";
+            Log(ERROR) << "Failed to get flags from socket";
             return false;
         }
 
@@ -54,48 +56,44 @@ namespace ncnet {
         return true;
     }
 
-    int Network::getSocket() const {
-        return socket_;
-    }
-
-    bool Network::read(Connection& connection) {
+    bool Network::read_data(Connection& connection) {
         constexpr auto BUFFER_SIZE = 1024 * 1024;
-        static vector<unsigned char> buffer;
+        vector<unsigned char> buffer;
+        buffer.resize(BUFFER_SIZE);
 
-        if (buffer.empty()) {
-            buffer.resize(BUFFER_SIZE);
-        }
-
-        int received = recv(connection.getSocket(), buffer.data(), BUFFER_SIZE, 0);
+        int received = recv(connection.get_socket(), buffer.data(), BUFFER_SIZE, 0);
         if (received <= 0) {
-            return false;
+            if (received == -1 && errno == -EAGAIN) {
+                return true; // Wait until next call
+            }
+            return false; // Error or disconnected
         }
 
         // Process buffer
         int processed = 0;
         while (processed < received) {
-            auto i = processBuffer(connection.getPacketSkeleton(), buffer.data() + processed, received - processed);
+            auto i = process_buffer(connection.get_packet_skeleton(), buffer.data() + processed, received - processed);
             processed += i;
 
+            // TODO: Can this even happen?
             if (i == 0) {
                 Log(ERROR) << "Fatal assert error, not processing data";
-                exit(-1);
+                assert(true);
             }
         }
 
         list<Transfer> incoming;
-
         // See if any packets are complete
-        while (connection.hasIncoming()) {
-            auto packet = connection.getIncoming();
-            incoming.emplace_back(connection.getId(), packet);
+        while (connection.has_incoming_packets()) {
+            incoming.emplace_back(connection.get_id(), connection.get_incoming_packet());
         }
 
         if (!incoming.empty()) {
+            // Add to process queue
             lock_guard<mutex> lock(incoming_lock_);
             incoming_.insert(incoming_.end(), incoming.begin(), incoming.end());
 
-            if (incoming.size() > 1) {
+            if (incoming_.size() > 1) {
                 incoming_cv_.notify_all();
             } else {
                 incoming_cv_.notify_one();
@@ -105,51 +103,54 @@ namespace ncnet {
         return true;
     }
 
-    bool Network::write(Connection& connection) {
-        auto& packet = connection.getOutgoing();
+    bool Network::write_data(Connection& connection) {
+        auto& packet = connection.get_outgoing_packet();
 
-        Log(DEBUG) << "Writing data to " << connection.getId();
+        Log(DEBUG) << "Writing data to " << connection.get_id();
 
-        int sent = ::send(connection.getSocket(), packet.getData() + packet.getSent(), packet.getSize() - packet.getSent(), 0);
+        int sent = send(connection.get_socket(), packet.getData() + packet.getSent(), packet.getSize() - packet.getSent(), 0);
         if (sent <= 0) {
-            return false;
+            if (sent == -1 && errno == -EAGAIN) {
+                return true; // Wait for next call
+            }
+            return false; // Error or disconnected
         }
 
         auto fully = packet.addSent(sent);
         if (fully) {
             // Remove packet, it's fully sent
-            connection.doneOutgoing();
+            connection.pop_outgoing();
         }
 
         // Success
         return true;
     }
 
-    void Network::prepareSets(fd_set& read_set, fd_set& write_set, fd_set& error_set) {
+    void Network::select_connections(fd_set& read_set, fd_set& write_set, fd_set& error_set) {
         FD_ZERO(&read_set);
         FD_ZERO(&write_set);
         FD_ZERO(&error_set);
 
         // Ignore main socket in client mode since server is the only connection
         if (!is_client_) {
-            FD_SET(getSocket(), &read_set);
-            FD_SET(getSocket(), &error_set);
+            FD_SET(get_socket(), &read_set);
+            FD_SET(get_socket(), &error_set);
         }
 
-        FD_SET(pipe_.getSocket(), &read_set);
-        FD_SET(pipe_.getSocket(), &error_set);
+        FD_SET(pipe_.get_socket(), &read_set);
+        FD_SET(pipe_.get_socket(), &error_set);
 
         for (auto& connection : connections_) {
-            FD_SET(connection.getSocket(), &read_set);
-            FD_SET(connection.getSocket(), &error_set);
+            FD_SET(connection.get_socket(), &read_set);
+            FD_SET(connection.get_socket(), &error_set);
 
-            if (connection.hasOutgoing()) {
-                FD_SET(connection.getSocket(), &write_set);
+            if (connection.has_outgoing_packets()) {
+                FD_SET(connection.get_socket(), &write_set);
             }
         }
     }
 
-    void Network::prepareOutgoing() {
+    void Network::sort_outgoing_packets() {
         lock_guard<mutex> lock(outgoing_lock_);
 
         // When we're in client-mode, all packets should go to the server
@@ -158,7 +159,7 @@ namespace ncnet {
                 // This case already handled by the main loop
             } else {
                 for (auto &transfer : outgoing_) {
-                    connections_.front().addOutgoing(transfer.get_packet());
+                    connections_.front().add_outgoing_packet(transfer.get_packet());
                 }
             }
         } else {
@@ -166,7 +167,7 @@ namespace ncnet {
             for (auto& transfer : outgoing_) {
                 // Find right connection
                 auto iterator = find_if(connections_.begin(), connections_.end(), [&transfer] (auto& connection) {
-                    return connection.getId() == transfer.get_connection_id();
+                    return connection.get_id() == transfer.get_connection_id();
                 });
 
                 if (iterator == connections_.end()) {
@@ -175,7 +176,7 @@ namespace ncnet {
                     continue;
                 }
 
-                iterator->addOutgoing(transfer.get_packet());
+                iterator->add_outgoing_packet(transfer.get_packet());
             }
         }
 
@@ -189,8 +190,8 @@ namespace ncnet {
         fd_set error_set;
 
         while (true) {
-            prepareOutgoing();
-            prepareSets(read_set, write_set, error_set);
+            sort_outgoing_packets();
+            select_connections(read_set, write_set, error_set);
 
             if (!select(FD_SETSIZE, &read_set, &write_set, &error_set, NULL)) {
                 Log(ERROR) << "Failed to select sockets";
@@ -203,6 +204,14 @@ namespace ncnet {
                     // Wake threads waiting for packets
                     incoming_cv_.notify_all();
 
+                    // Close all socket connections
+                    for_each(connections_.begin(), connections_.end(), [] (auto &connection) {
+                        connection.disconnect();
+                    });
+
+                    // Close server socket
+                    close(get_socket());
+
                     // Gracefully exit
                     Log(DEBUG) << "Exiting";
                     return;
@@ -211,17 +220,17 @@ namespace ncnet {
 
             // Only check accepting socket in server-mode
             if (!is_client_) {
-                if (FD_ISSET(getSocket(), &error_set)) {
+                if (FD_ISSET(get_socket(), &error_set)) {
                     // Error
                     Log(ERROR) << "Error in accepting socket";
                     return;
                 }
 
-                if (FD_ISSET(getSocket(), &read_set)) {
+                if (FD_ISSET(get_socket(), &read_set)) {
                     // Got connection
                     struct sockaddr in_addr;
                     socklen_t in_len = sizeof in_addr;
-                    int new_fd = accept(getSocket(), &in_addr, &in_len);
+                    int new_fd = accept(get_socket(), &in_addr, &in_len);
                     if (new_fd == -1) {
                         Log(WARN) << "Failed to accept new connection";
                         continue;
@@ -230,20 +239,20 @@ namespace ncnet {
                     auto ip = inet_ntoa(((sockaddr_in*)&in_addr)->sin_addr);
                     Log(INFO) << "Client connected (IP:" << ip << ")";
 
-                    prepareSocket(new_fd);
+                    prepare_socket(new_fd);
                     Connection connection;
-                    connection.setSocket(new_fd);
+                    connection.set_socket(new_fd);
                     connections_.push_back(connection);
                 }
             }
 
             // Check pipe
-            if (FD_ISSET(pipe_.getSocket(), &read_set)) {
+            if (FD_ISSET(pipe_.get_socket(), &read_set)) {
                 Log(DEBUG) << "Activating pipe";
-                pipe_.resetPipe();
+                pipe_.reset();
             }
 
-            if (FD_ISSET(pipe_.getSocket(), &error_set)) {
+            if (FD_ISSET(pipe_.get_socket(), &error_set)) {
                 Log(ERROR) << "Got pipe error";
                 return;
             }
@@ -253,21 +262,21 @@ namespace ncnet {
             for (size_t i = 0; i < connections_.size(); i++) {
                 auto& connection = connections_.at(i);
 
-                if (FD_ISSET(connection.getSocket(), &error_set)) {
-                    Log(WARN) << "Error on socket " << connection.getSocket();
+                if (FD_ISSET(connection.get_socket(), &error_set)) {
+                    Log(WARN) << "Error on socket " << connection.get_socket();
                     connection.disconnect();
                 }
 
-                if (FD_ISSET(connection.getSocket(), &read_set)) {
+                if (FD_ISSET(connection.get_socket(), &read_set)) {
                     // Read data from connection
-                    if (!read(connection)) {
+                    if (!read_data(connection)) {
                         connection.disconnect();
                     }
                 }
 
-                if (FD_ISSET(connection.getSocket(), &write_set)) {
+                if (FD_ISSET(connection.get_socket(), &write_set)) {
                     // Write data to connection
-                    if (!write(connection)) {
+                    if (!write_data(connection)) {
                         connection.disconnect();
                     }
                 }
@@ -275,10 +284,11 @@ namespace ncnet {
 
             // Remove disconnected sockets
             connections_.erase(remove_if(connections_.begin(), connections_.end(), [] (auto& connection) {
-                if (!connection.isConnected()) {
-                    Log(DEBUG) << "Removing connection " << connection.getId();
+                if (!connection.is_connected()) {
+                    Log(DEBUG) << "Removing connection " << connection.get_id();
+                    // TODO: Call disconnect callback here
                 }
-                return !connection.isConnected();
+                return !connection.is_connected();
             }), connections_.end());
 
             // If we're in client mode, losing the connection is fatal
@@ -290,7 +300,7 @@ namespace ncnet {
         }
     }
 
-    Transfer Network::get() {
+    Transfer Network::get_packet() {
         unique_lock<mutex> lock(incoming_lock_);
         incoming_cv_.wait(lock, [this] {
             lock_guard<mutex> stop_lock(stop_lock_);
@@ -300,9 +310,10 @@ namespace ncnet {
         lock_guard<mutex> stop_lock(stop_lock_);
         if (stop_) {
             // Exiting
-            return Transfer();
+            Transfer transfer;
+            transfer.set_is_exit(true); // Signal exit packet
+            return transfer;
         }
-
 
         auto transfer = incoming_.front();
         incoming_.pop_front();
@@ -317,24 +328,20 @@ namespace ncnet {
             stop_ = true;
 
             // Wake pipe
-            pipe_.setPipe();
+            pipe_.activate();
         }
 
         // Wait for exit
         network_.join();
     }
 
-    int Network::at_port() const {
-        return port_;
-    }
-
-    void Network::send(const Packet &packet, size_t peer_id) {
+    void Network::send_packet(const Packet &packet, size_t peer_id) {
         lock_guard<mutex> lock(outgoing_lock_);
         outgoing_.push_back(Transfer(peer_id, packet));
 
         Log(DEBUG) << "Pushing packet to peer " << peer_id;
 
         // Also wake up the pipe
-        pipe_.setPipe();
+        pipe_.activate();
     }
 }
