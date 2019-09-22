@@ -308,10 +308,13 @@ namespace ncnet {
             }
 
             // Remove disconnected sockets
-            connections_.erase(remove_if(connections_.begin(), connections_.end(), [] (auto& connection) {
+            connections_.erase(remove_if(connections_.begin(), connections_.end(), [this] (auto& connection) {
                 if (!connection.is_connected()) {
                     Log(DEBUG) << "Removing connection " << connection.get_id();
-                    // TODO: Call disconnect callback here
+                    // Call disconnect callback if registered
+                    if (get_disconnect_callback() != nullptr) {
+                        get_disconnect_callback()(connection.get_id());
+                    }
                 }
                 return !connection.is_connected();
             }), connections_.end());

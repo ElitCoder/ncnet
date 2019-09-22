@@ -7,6 +7,7 @@
 #include <thread>
 #include <vector>
 #include <condition_variable>
+#include <functional>
 
 namespace ncnet {
     class Network {
@@ -14,6 +15,7 @@ namespace ncnet {
         static bool prepare_socket(int fd);
         virtual void send_packet(const Packet &packet, size_t peer_id = 0) final;
         virtual void disconnect(size_t id) final; // Disconnect connection
+        BP_SET_GET(disconnect_callback, const std::function<void(size_t)> &)
         BP_GET(socket, int)
         BP_GET(port, int)
 
@@ -51,6 +53,7 @@ namespace ncnet {
         // Disconnecting
         std::mutex disconnect_lock_;
         std::vector<size_t> disconnect_connections_;
+        std::function<void(size_t)> disconnect_callback_ = nullptr;
 
         // If the network should be stopped
         std::mutex stop_lock_;
