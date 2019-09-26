@@ -28,31 +28,36 @@ namespace ncnet {
 
         // Creating
         void finalize(); // Calculate header size and packet data
+
+        Packet &operator<<(const std::string &val) {
+            create_add_string(val);
+            return *this;
+        }
+
+        Packet &operator<<(std::string val) {
+            create_add_string(val);
+            return *this;
+        }
+
+        template<class T>
+        Packet &operator<<(const T &val) {
+            create_add_var(val); // Return value is catched by assert anyway
+            return *this;
+        }
+
         template<class T>
         Packet &operator<<(T val) {
-            if (fixed_) {
-                // Programmer fault
-                handle_error("Packet already fixed");
-                return *this;
-            }
-
-            std::ostringstream stream;
-            stream << val;
-            if (stream.fail()) {
-                // Data type not supported
-                // Insert empty string
-                handle_error("Invalid input type");
-                return *this;
-            }
-
-            // Otherwise output to string and add
-            auto string_val = stream.str();
-            add_length_prefix(string_val);
-            data_->insert(data_->end(), string_val.begin(), string_val.end());
+            create_add_var(val);
             return *this;
         }
 
         // Reading
+#if 0
+        template<class T>
+        Packet &operator>>(const std::string &val) {
+        }
+#endif
+
         template<class T>
         Packet &operator>>(T &val) {
             // Read prefix length
@@ -84,6 +89,41 @@ namespace ncnet {
         }
 
     private:
+        bool create_add_string(const std::string &val) {
+            if (fixed_) {
+                handle_error("Packet already fixed");
+                return false;
+            }
+
+            // Add string length and string
+            add_length_prefix(val);
+            data_->insert(data_->end(), val.begin(), val.end());
+        }
+
+        template<class T>
+        bool create_add_val(const T &val) {
+            if (fixed_) {
+                handle_error("Packet already fixed");
+                return false;
+            }
+
+            // Convert
+            std::ostringstream stream;
+            stream << val;
+            if (stream.fail()) {
+                handle_error("Input type is not valid for sending");
+                return false;
+            }
+
+            // Add string length
+            auto &string_val = stream.str();
+            add_length_prefix(string_val);
+
+            // Add var
+            data_->insert(data_->end(), string_val.begin(), string_val.end());
+            return true;
+        }
+
         // Prefix inserted value with string length as in [length prefix length][length prefix][actual string]
         void add_length_prefix(const std::string &val);
         void handle_error(const std::string &message) const; // Do something clever with errors

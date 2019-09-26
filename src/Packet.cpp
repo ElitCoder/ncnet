@@ -13,8 +13,8 @@ namespace ncnet {
     }
 
     void Packet::add_length_prefix(const string &val) {
-        auto length = to_string(val.size());
-        data_->push_back(length.size());
+        auto length = to_string(val.length());
+        data_->push_back(length.length());
         data_->insert(data_->end(), length.begin(), length.end());
     }
 
