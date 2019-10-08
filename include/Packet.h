@@ -22,77 +22,71 @@ namespace ncnet {
         bool has_received_full_packet() const; // If full packet is received
 
         // Sending
+        void finalize(); // Calculate header size and packet data for sending
         unsigned char *get_send_buffer(); // Get current array for sending
         size_t left_to_send() const; // Bytes left to send
         bool sent_data(size_t sent); // Sent bytes
 
-        // Creating
-        void finalize(); // Calculate header size and packet data
+        // Adding
         template<class T>
-        Packet &operator<<(T val) {
-            if (fixed_) {
-                // Programmer fault
-                handle_error("Packet already fixed");
-                return *this;
-            }
-
-            std::ostringstream stream;
-            stream << val;
-            if (stream.fail()) {
-                // Data type not supported
-                // Insert empty string
-                handle_error("Invalid input type");
-                return *this;
-            }
-
-            // Otherwise output to string and add
-            auto string_val = stream.str();
-            add_length_prefix(string_val);
-            data_->insert(data_->end(), string_val.begin(), string_val.end());
-            return *this;
+        void add_data(T val) {
+            auto str = std::to_string(val);
+            data_->push_back(str.length());
+            data_->insert(data_->end(), str.begin(), str.end());
         }
+
+        void add_string(const std::string &val);
+        Packet &operator<<(bool val);
+        Packet &operator<<(short val);
+        Packet &operator<<(unsigned short val);
+        Packet &operator<<(int val);
+        Packet &operator<<(unsigned int val);
+        Packet &operator<<(long val);
+        Packet &operator<<(unsigned long val);
+        Packet &operator<<(long long val);
+        Packet &operator<<(unsigned long long val);
+        Packet &operator<<(float val);
+        Packet &operator<<(double val);
+        Packet &operator<<(long double val);
+        Packet &operator<<(const std::string &val);
+        Packet &operator<<(const char *val);
 
         // Reading
         template<class T>
-        Packet &operator>>(T &val) {
-            // Read prefix length
-            auto prefix_length = data_->at(read_position_++);
-            auto prefix_str = std::string(data_->begin() + read_position_, data_->begin() + read_position_ + prefix_length);
-            read_position_ += prefix_length;
+        void read_data(T &val) {
+            auto len = data_->at(read_position_++);
+            auto str = std::string(data_->begin() + read_position_, data_->begin() + read_position_ + len);
+            read_position_ += len;
 
-            // String length -> size_t
-            std::stringstream length_stream(prefix_str);
-            size_t actual_length;
-            length_stream >> actual_length;
-            if (length_stream.fail()) {
-                handle_error("Could not read actual string length");
-                return *this;
+            // Convert
+            std::istringstream stream(str);
+            stream >> val;
+
+            if (stream.fail()) {
+                handle_error("Failed to convert data type");
             }
-
-            // Read final string
-            auto actual_str = std::string(data_->begin() + read_position_, data_->begin() + read_position_ + actual_length);
-            read_position_ += actual_length;
-
-            // Transform to T
-            std::stringstream actual_stream(actual_str);
-            actual_stream >> std::skipws >> val;
-            if (actual_stream.fail()) {
-                handle_error("Could not read actual string");
-            }
-
-            return *this;
         }
 
+        void read_string(std::string &val);
+        Packet &operator>>(bool &val);
+        Packet &operator>>(short &val);
+        Packet &operator>>(unsigned short &val);
+        Packet &operator>>(int &val);
+        Packet &operator>>(unsigned int &val);
+        Packet &operator>>(long &val);
+        Packet &operator>>(unsigned long &val);
+        Packet &operator>>(long long &val);
+        Packet &operator>>(unsigned long long &val);
+        Packet &operator>>(float &val);
+        Packet &operator>>(double &val);
+        Packet &operator>>(long double &val);
+        Packet &operator>>(std::string &val);
+
     private:
-        // Prefix inserted value with string length as in [length prefix length][length prefix][actual string]
-        void add_length_prefix(const std::string &val);
         void handle_error(const std::string &message) const; // Do something clever with errors
 
         // Common
         DataType data_;
-
-        // Creating
-        bool fixed_ = false; // Allow no more insertions
 
         // Receiving
         size_t added_ = 0; // Actually received bytes
@@ -100,6 +94,9 @@ namespace ncnet {
 
         // Sending
         size_t sent_ = 0; // Actually sent bytes
+
+        // Adding
+        bool fixed_ = false; // Allow no more insertions
 
         // Reading
         size_t read_position_ = PACKET_HEADER_SIZE; // Current reading position

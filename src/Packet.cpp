@@ -12,10 +12,24 @@ namespace ncnet {
         data_->resize(PACKET_HEADER_SIZE); // Allocate header
     }
 
-    void Packet::add_length_prefix(const string &val) {
-        auto length = to_string(val.size());
-        data_->push_back(length.size());
-        data_->insert(data_->end(), length.begin(), length.end());
+    void Packet::read_string(string &val) {
+        // Read prefix length
+        auto prefix_len = data_->at(read_position_++);
+        auto prefix = string(data_->begin() + read_position_, data_->begin() + read_position_ + prefix_len);
+        read_position_ += prefix_len;
+        // Read string
+        auto len = stoull(prefix);
+        val = string(data_->begin() + read_position_, data_->begin() + read_position_ + len);
+        read_position_ += len;
+    }
+
+    void Packet::add_string(const string &val) {
+        // Add prefix
+        auto prefix = to_string(val.length());
+        data_->push_back(prefix.length());
+        data_->insert(data_->end(), prefix.begin(), prefix.end());
+        // Add string
+        data_->insert(data_->end(), val.begin(), val.end());
     }
 
     void Packet::handle_error(const string &message) const {
@@ -88,5 +102,117 @@ namespace ncnet {
         }
         Log(DEBUG) << "Finalizing packet with size " << data_->size() << " and content ";
         fixed_ = true;
+    }
+
+    // Adding
+    Packet &Packet::operator<<(bool val) {
+        add_data(val);
+        return *this;
+    }
+    Packet &Packet::operator<<(short val) {
+        add_data(val);
+        return *this;
+    }
+    Packet &Packet::operator<<(unsigned short val) {
+        add_data(val);
+        return *this;
+    }
+    Packet &Packet::operator<<(int val) {
+        add_data(val);
+        return *this;
+    }
+    Packet &Packet::operator<<(unsigned int val) {
+        add_data(val);
+        return *this;
+    }
+    Packet &Packet::operator<<(long val) {
+        add_data(val);
+        return *this;
+    }
+    Packet &Packet::operator<<(unsigned long val) {
+        add_data(val);
+        return *this;
+    }
+    Packet &Packet::operator<<(long long val) {
+        add_data(val);
+        return *this;
+    }
+    Packet &Packet::operator<<(unsigned long long val) {
+        add_data(val);
+        return *this;
+    }
+    Packet &Packet::operator<<(float val) {
+        add_data(val);
+        return *this;
+    }
+    Packet &Packet::operator<<(double val) {
+        add_data(val);
+        return *this;
+    }
+    Packet &Packet::operator<<(long double val) {
+        add_data(val);
+        return *this;
+    }
+    Packet &Packet::operator<<(const std::string &val) {
+        add_string(val);
+        return *this;
+    }
+    Packet &Packet::operator<<(const char *val) {
+        add_string(string(val));
+        return *this;
+    }
+
+    // Reading
+    Packet &Packet::operator>>(bool &val) {
+        read_data(val);
+        return *this;
+    }
+    Packet &Packet::operator>>(short &val) {
+        read_data(val);
+        return *this;
+    }
+    Packet &Packet::operator>>(unsigned short &val) {
+        read_data(val);
+        return *this;
+    }
+    Packet &Packet::operator>>(int &val) {
+        read_data(val);
+        return *this;
+    }
+    Packet &Packet::operator>>(unsigned int &val) {
+        read_data(val);
+        return *this;
+    }
+    Packet &Packet::operator>>(long &val) {
+        read_data(val);
+        return *this;
+    }
+    Packet &Packet::operator>>(unsigned long &val) {
+        read_data(val);
+        return *this;
+    }
+    Packet &Packet::operator>>(long long &val) {
+        read_data(val);
+        return *this;
+    }
+    Packet &Packet::operator>>(unsigned long long &val) {
+        read_data(val);
+        return *this;
+    }
+    Packet &Packet::operator>>(float &val) {
+        read_data(val);
+        return *this;
+    }
+    Packet &Packet::operator>>(double &val) {
+        read_data(val);
+        return *this;
+    }
+    Packet &Packet::operator>>(long double &val) {
+        read_data(val);
+        return *this;
+    }
+    Packet &Packet::operator>>(std::string &val) {
+        read_string(val);
+        return *this;
     }
 }
