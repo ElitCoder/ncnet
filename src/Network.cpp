@@ -14,6 +14,18 @@
 using namespace std;
 
 namespace ncnet {
+    void run_transfer_loop(Network &network, const TransferFunction &func) {
+        // Loop until stopped
+        while (true) {
+            auto transfer = network.get_packet();
+            if (transfer.get_is_exit()) {
+                break;
+            }
+            // Call supplied function
+            func(transfer);
+        }
+    }
+
     bool Network::prepare_socket(int fd) {
         // Just set non-blocking for now
         int flags = fcntl(fd, F_GETFL, 0);
@@ -187,7 +199,9 @@ namespace ncnet {
                     }
 
                     // Close server socket
-                    close(get_socket());
+                    if (!is_client_) {
+                        close(get_socket());
+                    }
 
                     // Gracefully exit
                     Log(DEBUG) << "Exiting";
@@ -337,6 +351,14 @@ namespace ncnet {
 
         // Wait for exit
         network_.join();
+
+        {
+            // Wait for transfer loops
+            lock_guard<mutex> lock(transfer_loop_lock_);
+            for (auto &transfer_thread : transfer_loops_) {
+                transfer_thread.join();
+            }
+        }
     }
 
     void Network::send_packet(Packet &packet, size_t peer_id) {
@@ -356,5 +378,11 @@ namespace ncnet {
 
         // Wake pipe to process
         pipe_.activate();
+    }
+
+    void Network::register_transfer_loop(const TransferFunction &func) {
+        lock_guard<mutex> lock(transfer_loop_lock_);
+        // Start transfer thread and add to list to keep track
+        transfer_loops_.emplace_back(thread(run_transfer_loop, ref(*this), ref(func)));
     }
 }
