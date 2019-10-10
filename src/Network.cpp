@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cassert>
 #include <unistd.h>
+#include <cmath>
 
 using namespace std;
 
@@ -75,6 +76,50 @@ namespace ncnet {
         // See if any packets are complete
         while (connection.has_incoming_packets()) {
             incoming.emplace_back(connection.get_id(), connection.get_incoming_packet());
+        }
+
+        if (connection.get_key_exchange()) {
+            if (incoming.empty()) {
+                // No full packet
+                return true;
+            }
+
+            // When in secure transfer, the client should only send an auth packet and wait for server secret response
+            if (incoming.size() > 1) {
+                // Disconnect
+                Log(WARN) << "Disconnecting client due to invalid security protocol";
+                return false;
+            }
+
+            auto &packet = incoming.front().get_packet();
+            // Do we already have p, g?
+            if (connection.get_key_p() != 0 && connection.get_key_g() != 0) {
+                // Second
+                int connection_secret;
+                packet >> connection_secret;
+                // Compute final shared secret
+                auto shared = connection_secret * pow(connection_secret, connection.get_key_intermediate() - 1);
+                connection.set_key(shared);
+                connection.set_key_exchange(false); // Done
+                Log(DEBUG) << "Final shared key is " << shared;
+            } else {
+                // First
+                int p, g;
+                packet >> p;
+                packet >> g;
+                connection.set_key_p(p);
+                connection.set_key_g(g);
+                // TODO: Randomize
+                auto a = 2;
+                auto A = g * pow(g, a - 1);
+                connection.set_key_intermediate(A);
+                Log(DEBUG) << "Calculated intermediate " << A;
+
+                // Send back our secret
+                Packet response;
+                response << A;
+                send_packet(response, connection.get_id());
+            }
         }
 
         if (!incoming.empty()) {

@@ -10,6 +10,11 @@ namespace ncnet {
     public:
         explicit Connection(); // Force new connection IDs
         BP_SET_GET(socket, int)
+        BP_SET_GET(key_exchange, bool);
+        BP_SET_GET(key_p, unsigned char)
+        BP_SET_GET(key_g, unsigned char)
+        BP_SET_GET(key_intermediate, unsigned char)
+        BP_SET_GET(key, unsigned long long int)
         BP_GET(id, size_t)
         BP_GET(connected, bool);
 
@@ -28,6 +33,12 @@ namespace ncnet {
     private:
         int socket_ = -1;
         bool connected_ = true;
+        bool key_exchange_ = true;
+        unsigned char key_p_ = 0;
+        unsigned char key_g_ = 0;
+        unsigned char key_intermediate_ = 0;
+        unsigned long long int key_ = 0;
+
         size_t id_ = 0;
 
         std::list<Packet> incoming_;
