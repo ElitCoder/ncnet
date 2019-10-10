@@ -319,14 +319,15 @@ namespace ncnet {
     }
 
     Transfer Network::get_packet() {
+        bool should_stop = false;
         unique_lock<mutex> lock(incoming_lock_);
-        incoming_cv_.wait(lock, [this] {
+        incoming_cv_.wait(lock, [this, &should_stop] {
             lock_guard<mutex> stop_lock(stop_lock_);
+            should_stop = stop_;
             return stop_ ? true : !incoming_.empty();
         });
 
-        lock_guard<mutex> stop_lock(stop_lock_);
-        if (stop_) {
+        if (should_stop) {
             // Exiting
             Transfer transfer;
             transfer.set_is_exit(true); // Signal exit packet
