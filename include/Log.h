@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <mutex>
 
 namespace ncnet {
     constexpr auto DEBUG = "DEBUG";
@@ -14,14 +15,23 @@ namespace ncnet {
         Log() {}
         Log(std::string prefix) : prefix_(prefix) {}
         ~Log() {
+            std::lock_guard<std::mutex> lock(lock_);
+            if (!enabled_) {
+                return;
+            }
+
             if (prefix_ != "") {
                 std::cout << "[" << prefix_ << "] ";
             }
 
-            std::cout << str() << std::endl;
+            std::cout << str() << "\n" << std::flush;
         }
 
+        static void enable(bool enabled);
+
     private:
+        static std::mutex lock_;
+        static bool enabled_;
         std::string prefix_ = "";
     };
 }

@@ -1,11 +1,13 @@
 #include <ncnet/Server.h>
 #include <ncnet/Client.h>
+#include <ncnet/Log.h>
 
 #include <iostream>
 #include <atomic>
 #include <cassert>
 
 using namespace std;
+using namespace ncnet;
 
 bool verify_response(ncnet::Packet &packet) {
     cout << "Verifying response\n";
@@ -32,7 +34,7 @@ bool verify_response(ncnet::Packet &packet) {
     assert(long_val == -1000000000);
     packet >> tmp;
     assert(tmp == "both");
-    cout << "[PASSED]\n";
+    Log("") << "[PASSED]\n";
     return false;
 }
 
@@ -51,33 +53,36 @@ ncnet::Packet create_test_packet() {
 }
 
 int main() {
+    ncnet::Log::enable(true);
+
     ncnet::Server server;
     auto port = 15500;
     server.start("", port);
     server.register_transfer_loop([&server] (auto &transfer) {
         // Echo
         server.send_packet(transfer.get_packet(), transfer.get_connection_id());
-        cout << "Echoing\n";
+        ncnet::Log(ncnet::DEBUG) << "Echoing\n";
     });
 
     ncnet::Client client;
     client.start("localhost", port);
-    atomic<bool> quit;
-    atomic<bool> failed;
-    quit.store(false);
-    failed.store(true);
-    client.register_transfer_loop([&client, &quit, &failed] (auto &transfer) {
-        failed.store(verify_response(transfer.get_packet()));
-        quit.store(true);
+    mutex lock;
+    auto quit = false;
+    auto failed = true;
+    client.register_transfer_loop([&client, &quit, &failed, &lock] (auto &transfer) {
+        lock_guard<mutex> failed_lock(lock);
+        failed = verify_response(transfer.get_packet());
+        quit = true;
     });
 
     auto test_packet = create_test_packet();
     client.send_packet(test_packet);
-    cout << "Sent test packet\n";
+    Log(DEBUG) << "Sent test packet\n";
 
     // Wait
     while (true) {
-        if (quit.load()) {
+        lock_guard<mutex> loop_lock(lock);
+        if (quit) {
             break;
         }
 
@@ -87,5 +92,5 @@ int main() {
 
     client.stop();
     server.stop();
-    return failed.load() ? 0 : -1;
+    return failed ? 0 : -1;
 }

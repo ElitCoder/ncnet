@@ -11,6 +11,7 @@ set(SRCS
         src/EventPipe.cpp
         src/Network.cpp
         src/Packet.cpp
+        src/Log.cpp
         src/Server.cpp)
 
 # Compiler options
