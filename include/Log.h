@@ -5,33 +5,39 @@
 #include <mutex>
 
 namespace ncnet {
-    constexpr auto DEBUG = "DEBUG";
-    constexpr auto WARN = "WARN";
-    constexpr auto ERROR = "ERROR";
-    constexpr auto INFO = "INFO";
+    // Log levels/prefixes
+    enum LogLevel {
+        NONE,
+        DEBUG,
+        INFO,
+        WARN,
+        ERROR,
+        CRITICAL
+    };
 
     class Log : public std::ostringstream {
     public:
-        Log() {}
-        Log(std::string prefix) : prefix_(prefix) {}
-        ~Log() {
-            std::lock_guard<std::mutex> lock(lock_);
-            if (!enabled_) {
-                return;
-            }
+        // Creates no prefix log, always shown unless fully disabled
+        Log();
+        // Log with prefix
+        Log(LogLevel level);
+        // Sync and output current stream
+        ~Log();
 
-            if (prefix_ != "") {
-                std::cout << "[" << prefix_ << "] ";
-            }
-
-            std::cout << str() << "\n" << std::flush;
-        }
-
+        // Enable/disable all output
         static void enable(bool enabled);
+        // Set log level
+        static void set_log_level(LogLevel level);
 
     private:
+        // Global output sync
         static std::mutex lock_;
+        // Enable/disable
         static bool enabled_;
-        std::string prefix_ = "";
+        // Log level
+        static LogLevel log_level_;
+
+        // Current output prefix
+        LogLevel prefix_ = LogLevel::NONE;
     };
 }

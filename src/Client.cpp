@@ -52,7 +52,7 @@ namespace ncnet {
         connection.set_socket(socket_);
         connections_.push_back(connection);
 
-        Log(INFO) << "Connected to " << hostname << ":" << port;
+        Log(DEBUG) << "Connected to " << hostname << ":" << port;
 
         // Create networking thread and start processing
         network_ = thread(networking, ref(*this));

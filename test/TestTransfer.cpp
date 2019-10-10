@@ -10,7 +10,6 @@ using namespace std;
 using namespace ncnet;
 
 bool verify_response(ncnet::Packet &packet) {
-    cout << "Verifying response\n";
     string tmp;
     packet >> tmp;
     assert(tmp == "string");
@@ -34,7 +33,6 @@ bool verify_response(ncnet::Packet &packet) {
     assert(long_val == -1000000000);
     packet >> tmp;
     assert(tmp == "both");
-    Log("") << "[PASSED]\n";
     return false;
 }
 
@@ -53,15 +51,12 @@ ncnet::Packet create_test_packet() {
 }
 
 int main() {
-    ncnet::Log::enable(true);
-
     ncnet::Server server;
     auto port = 15500;
     server.start("", port);
     server.register_transfer_loop([&server] (auto &transfer) {
         // Echo
         server.send_packet(transfer.get_packet(), transfer.get_connection_id());
-        ncnet::Log(ncnet::DEBUG) << "Echoing\n";
     });
 
     ncnet::Client client;
@@ -77,13 +72,14 @@ int main() {
 
     auto test_packet = create_test_packet();
     client.send_packet(test_packet);
-    Log(DEBUG) << "Sent test packet\n";
 
     // Wait
     while (true) {
-        lock_guard<mutex> loop_lock(lock);
-        if (quit) {
-            break;
+        {
+            lock_guard<mutex> loop_lock(lock);
+            if (quit) {
+                break;
+            }
         }
 
         using namespace literals::chrono_literals;

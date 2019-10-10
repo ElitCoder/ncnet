@@ -234,7 +234,7 @@ namespace ncnet {
                     }
 
                     auto ip = inet_ntoa(((sockaddr_in*)&in_addr)->sin_addr);
-                    Log(INFO) << "Client connected (IP:" << ip << ")";
+                    Log(DEBUG) << "Client connected (IP:" << ip << ")";
 
                     prepare_socket(new_fd);
                     Connection connection;

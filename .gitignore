@@ -35,3 +35,4 @@ build/*
 
 # Editors
 .vscode/*
+*/.vscode/*
