@@ -186,27 +186,33 @@ namespace ncnet {
                 return;
             }
 
+            auto should_stop = false;
             {
                 lock_guard<mutex> lock(stop_lock_);
-                if (stop_) {
-                    // Wake threads waiting for packets
+                should_stop = stop_;
+            }
+
+            if (should_stop) {
+                // Wake threads waiting for packets
+                {
+                    lock_guard<mutex> incoming_lock(incoming_lock_);
                     incoming_cv_.notify_all();
-
-                    // Close all socket connections
-                    #pragma omp parallel for
-                    for (size_t i = 0; i < connections_.size(); i++) {
-                        connections_.at(i).disconnect();
-                    }
-
-                    // Close server socket
-                    if (!is_client_) {
-                        close(get_socket());
-                    }
-
-                    // Gracefully exit
-                    Log(DEBUG) << "Exiting";
-                    return;
                 }
+
+                // Close all socket connections
+                #pragma omp parallel for
+                for (size_t i = 0; i < connections_.size(); i++) {
+                    connections_.at(i).disconnect();
+                }
+
+                // Close server socket
+                if (!is_client_) {
+                    close(get_socket());
+                }
+
+                // Gracefully exit
+                Log(DEBUG) << "Exiting";
+                return;
             }
 
             // Only check accepting socket in server-mode
