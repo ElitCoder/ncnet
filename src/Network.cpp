@@ -92,34 +92,40 @@ namespace ncnet {
             }
 
             auto &packet = incoming.front().get_packet();
-            // Do we already have p, g?
-            if (connection.get_key_p() != 0 && connection.get_key_g() != 0) {
-                // Second
-                int connection_secret;
-                packet >> connection_secret;
-                // Compute final shared secret
-                auto shared = connection_secret * pow(connection_secret, connection.get_key_intermediate() - 1);
-                connection.set_key(shared);
-                connection.set_key_exchange(false); // Done
-                Log(DEBUG) << "Final shared key is " << shared;
-            } else {
-                // First
-                int p, g;
-                packet >> p;
-                packet >> g;
-                connection.set_key_p(p);
-                connection.set_key_g(g);
-                // TODO: Randomize
-                auto a = 2;
-                auto A = g * pow(g, a - 1);
-                connection.set_key_intermediate(A);
-                Log(DEBUG) << "Calculated intermediate " << A;
+            string dh_pub;
+            string sign_pub;
+            packet >> dh_pub;
+            packet >> sign_pub;
 
-                // Send back our secret
-                Packet response;
-                response << A;
-                send_packet(response, connection.get_id());
+            if (!is_client_) {
+                string cek_transport;
+                try {
+                    cek_transport = connection.get_security().compute_shared_key(dh_pub, sign_pub);
+                } catch (std::runtime_error &e) {
+                    // Disconnect client
+                    return false;
+                }
+
+                Log(DEBUG) << "CEK generation was accepted";
+
+                // Return our public DH key and public sign key along with CEK
+                Packet key_response;
+                key_response << connection.get_security().get_pub_dh_key() << connection.get_security().get_pub_sign_key() << cek_transport;
+                send_packet(key_response, connection.get_id());
+                connection.get_security().set_encrypted_cek(cek_transport);
+
+                Log(DEBUG) << "Exiting key exchange";
+            } else {
+                string cek;
+                packet >> cek;
+                // Compute shared key and ignore new CEK
+                connection.get_security().compute_shared_key(dh_pub, sign_pub);
+                connection.get_security().set_encrypted_cek(cek);
             }
+
+            // Everything OK, exit key exchange
+            connection.set_key_exchange(false);
+            incoming.pop_front();
         }
 
         if (!incoming.empty()) {

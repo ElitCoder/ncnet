@@ -12,7 +12,8 @@ set(SRCS
         src/Network.cpp
         src/Packet.cpp
         src/Log.cpp
-        src/Server.cpp)
+        src/Server.cpp
+        src/Security.cpp)
 
 # Compiler options
 set(CMAKE_CXX_STANDARD 14)
@@ -47,5 +48,6 @@ install(FILES
             include/EventPipe.h
             include/Boilerplate.h
             include/Log.h
+            include/Security.h
         DESTINATION
             include/ncnet)

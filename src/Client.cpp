@@ -54,6 +54,14 @@ namespace ncnet {
 
         Log(DEBUG) << "Connected to " << hostname << ":" << port;
 
+        // Send auth security packet containing public keys
+        Packet packet;
+        packet << connection.get_security().get_pub_dh_key();
+        packet << connection.get_security().get_pub_sign_key();
+        send_packet(packet);
+
+        Log(DEBUG) << "Client sent public keys";
+
         // Create networking thread and start processing
         network_ = thread(networking, ref(*this));
         port_ = port;
