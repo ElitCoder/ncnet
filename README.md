@@ -36,7 +36,7 @@ $ cd ncnet && mkdir -p build && cd build && cmake .. && make -j && sudo make ins
 ## Example building with ncnet using GCC
 
 ```console
-$ g++ -o ncnet_src ncnet_src.cpp -lncnet
+$ g++ -o ncnet_src ncnet_src.cpp -lncnet -lcryptopp
 ```
 
 ## Usage samples
