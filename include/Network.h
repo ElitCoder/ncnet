@@ -30,6 +30,9 @@ namespace ncnet {
         void run();
 
     protected:
+        void start_key_exchange(Connection &connection); // Send public keys
+        bool respond_key_exchange(Connection &connection, Transfer &transfer); // Process response from key exchange
+
         std::thread network_; // Main network thread
         int socket_ = -1; // Main listening socket
         bool is_client_ = false;

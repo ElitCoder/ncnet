@@ -92,16 +92,44 @@ namespace ncnet {
         return sent_ == data_->size();
     }
 
+    void Packet::set_packet_size() {
+        for (int i = 0; i < PACKET_HEADER_SIZE; i++) {
+            data_->at(i) = data_->size() >> (24 - i * 8) & 0xFF;
+        }
+    }
+
     void Packet::finalize() {
         if (fixed_) {
             return;
         }
 
-        for (int i = 0; i < PACKET_HEADER_SIZE; i++) {
-            data_->at(i) = data_->size() >> (24 - i * 8) & 0xFF;
-        }
+        set_packet_size();
         Log(DEBUG) << "Finalizing packet with size " << data_->size() << " and content ";
         fixed_ = true;
+    }
+
+    void Packet::encrypt(Security &security) {
+        // Encrypted content
+        DataType new_data = make_shared<vector<unsigned char>>();
+        new_data->resize(PACKET_HEADER_SIZE); // Reserve size of packet
+        // Encrypt current data vector and store it in new_data
+        security.encrypt(data_, PACKET_HEADER_SIZE, new_data);
+        // Replace
+        data_ = new_data;
+        // Recalculate size
+        set_packet_size();
+    }
+
+    void Packet::decrypt(Security &security) {
+        // Remove extra allocation for decryption to match
+        data_->resize(added_);
+        // Decrypted content
+        DataType new_data = make_shared<vector<unsigned char>>();
+        new_data->resize(PACKET_HEADER_SIZE); // Reserve size of packet
+        security.decrypt(data_, PACKET_HEADER_SIZE, new_data);
+        data_ = new_data;
+        // Recalculate size
+        set_packet_size();
     }
 
     // Adding

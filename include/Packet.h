@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Security.h"
+
 #include <memory>
 #include <vector>
 #include <sstream>
@@ -82,7 +84,11 @@ namespace ncnet {
         Packet &operator>>(long double &val);
         Packet &operator>>(std::string &val);
 
+        void encrypt(Security &security);
+        void decrypt(Security &security);
+
     private:
+        void set_packet_size(); // Calculate the packet size
         void handle_error(const std::string &message) const; // Do something clever with errors
 
         // Common

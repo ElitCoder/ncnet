@@ -27,6 +27,54 @@ namespace ncnet {
         }
     }
 
+    void Network::start_key_exchange(Connection &connection) {
+        // Send opening packet containing generated public keys
+        Packet packet;
+        packet << connection.get_security().get_pub_dh_key();
+        packet << connection.get_security().get_pub_sign_key();
+        // Bypass send_packet to avoid encryption
+        packet.finalize();
+        connections_.front().add_outgoing_packet(packet);
+    }
+
+    bool Network::respond_key_exchange(Connection &connection, Transfer &transfer) {
+        // Read supplied keys
+        auto &packet = transfer.get_packet();
+        string dh_pub;
+        string sign_pub;
+        packet >> dh_pub;
+        packet >> sign_pub;
+
+        // Encrypted CEK sent from server
+        string encrypted_cek;
+
+        if (!is_client_) {
+            // Client -> server means respond with CEK
+            try {
+                encrypted_cek = connection.get_security().compute_shared_key(dh_pub, sign_pub);
+            } catch (std::runtime_error &e) {
+                // Disconnect client
+                return false;
+            }
+
+            // Return our public DH key and public sign key along with CEK
+            Packet key_response;
+            key_response << connection.get_security().get_pub_dh_key() << connection.get_security().get_pub_sign_key() << encrypted_cek;
+            // Bypass send_packet
+            key_response.finalize();
+            connection.add_outgoing_packet(key_response);
+        } else {
+            // Read encrypted CEK
+            packet >> encrypted_cek;
+            // Compute shared key and set new CEK
+            connection.get_security().compute_shared_key(dh_pub, sign_pub);
+            connection.get_security().set_encrypted_cek(encrypted_cek);
+        }
+
+        // All good
+        return true;
+    }
+
     bool Network::prepare_socket(int fd) {
         // Just set non-blocking for now
         int flags = fcntl(fd, F_GETFL, 0);
@@ -85,47 +133,26 @@ namespace ncnet {
             }
 
             // When in secure transfer, the client should only send an auth packet and wait for server secret response
-            if (incoming.size() > 1) {
+            if (incoming.size() > 1 || !respond_key_exchange(connection, incoming.front())) {
                 // Disconnect
                 Log(WARN) << "Disconnecting client due to invalid security protocol";
                 return false;
             }
 
-            auto &packet = incoming.front().get_packet();
-            string dh_pub;
-            string sign_pub;
-            packet >> dh_pub;
-            packet >> sign_pub;
-
-            if (!is_client_) {
-                string cek_transport;
-                try {
-                    cek_transport = connection.get_security().compute_shared_key(dh_pub, sign_pub);
-                } catch (std::runtime_error &e) {
-                    // Disconnect client
-                    return false;
-                }
-
-                Log(DEBUG) << "CEK generation was accepted";
-
-                // Return our public DH key and public sign key along with CEK
-                Packet key_response;
-                key_response << connection.get_security().get_pub_dh_key() << connection.get_security().get_pub_sign_key() << cek_transport;
-                send_packet(key_response, connection.get_id());
-                connection.get_security().set_encrypted_cek(cek_transport);
-
-                Log(DEBUG) << "Exiting key exchange";
-            } else {
-                string cek;
-                packet >> cek;
-                // Compute shared key and ignore new CEK
-                connection.get_security().compute_shared_key(dh_pub, sign_pub);
-                connection.get_security().set_encrypted_cek(cek);
-            }
-
             // Everything OK, exit key exchange
             connection.set_key_exchange(false);
             incoming.pop_front();
+        }
+
+        // Decrypt incoming packets
+        for (auto &transfer : incoming) {
+            try {
+                transfer.get_packet().decrypt(connection.get_security());
+            } catch (runtime_error &e) {
+                // Disconnect client
+                Log(WARN) << "Decrypting failed, disconnecting client";
+                return false;
+            }
         }
 
         if (!incoming.empty()) {
@@ -197,7 +224,13 @@ namespace ncnet {
             if (connections_.empty()) {
                 // This case already handled by the main loop
             } else {
+                // If we're in key exchange, all packets should be held-off until key exchange is done
+                if (connections_.front().get_key_exchange()) {
+                    return;
+                }
+
                 for (auto &transfer : outgoing_) {
+                    transfer.get_packet().encrypt(connections_.front().get_security());
                     connections_.front().add_outgoing_packet(transfer.get_packet());
                 }
             }
@@ -215,6 +248,8 @@ namespace ncnet {
                     continue;
                 }
 
+                // Encrypt by default
+                transfer.get_packet().encrypt(iterator->get_security());
                 iterator->add_outgoing_packet(transfer.get_packet());
             }
         }

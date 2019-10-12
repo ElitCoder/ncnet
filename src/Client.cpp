@@ -48,19 +48,14 @@ namespace ncnet {
         is_client_ = true;
 
         // Add server as only connection
-        Connection connection;
+        connections_.emplace_back();
+        auto &connection = connections_.back();
         connection.set_socket(socket_);
-        connections_.push_back(connection);
 
         Log(DEBUG) << "Connected to " << hostname << ":" << port;
 
-        // Send auth security packet containing public keys
-        Packet packet;
-        packet << connection.get_security().get_pub_dh_key();
-        packet << connection.get_security().get_pub_sign_key();
-        send_packet(packet);
-
-        Log(DEBUG) << "Client sent public keys";
+        // Start key exchange by sending public keys
+        start_key_exchange(connection);
 
         // Create networking thread and start processing
         network_ = thread(networking, ref(*this));

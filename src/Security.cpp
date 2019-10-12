@@ -3,9 +3,9 @@
 
 #include <cryptopp/dh.h>
 #include <cryptopp/integer.h>
-#include <cryptopp/osrng.h>
 #include <cryptopp/cmac.h>
 #include <cryptopp/modes.h>
+#include <cryptopp/gcm.h>
 
 using namespace std;
 using namespace CryptoPP;
@@ -27,6 +27,12 @@ static const Integer g("0xA4D1CBD5C3FD34126765A442EFB99905F8104DD258AC507F"
 
 static const Integer q("0xF518AA8781A8DF278ABA4E7D64B7CB9D49462353");
 
+// GCM AES tag size
+static constexpr auto TAG_SIZE = 12;
+
+// Default IV size
+static constexpr auto IV_SIZE = AES::BLOCKSIZE * 16;
+
 namespace ncnet {
     Security::Security() {
         // Initialize DH and create key-pairs
@@ -39,9 +45,9 @@ namespace ncnet {
         sign_key_.priv = make_shared<SecByteBlock>(dh2_->EphemeralPrivateKeyLength());
         sign_key_.pub = make_shared<SecByteBlock>(dh2_->EphemeralPublicKeyLength());
 
-        AutoSeededRandomPool rnd;
-        dh2_->GenerateStaticKeyPair(rnd, *dh_key_.priv, *dh_key_.pub);
-        dh2_->GenerateEphemeralKeyPair(rnd, *sign_key_.priv, *sign_key_.pub);
+        rnd_ = make_shared<AutoSeededRandomPool>();
+        dh2_->GenerateStaticKeyPair(*rnd_, *dh_key_.priv, *dh_key_.pub);
+        dh2_->GenerateEphemeralKeyPair(*rnd_, *sign_key_.priv, *sign_key_.pub);
     }
 
     string Security::get_pub_dh_key() const {
@@ -57,18 +63,13 @@ namespace ncnet {
     }
 
     std::string Security::compute_shared_key(const string &client_dh_pub, const string &client_sign_pub) {
-        Log(DEBUG) << "Computing shared key from client pub " << client_dh_pub.size() << " and sign " << client_sign_pub.size();
-
         SecByteBlock dh_pub(reinterpret_cast<const CryptoPP::byte*>(&client_dh_pub[0]), client_dh_pub.size());
         SecByteBlock sign_pub(reinterpret_cast<const CryptoPP::byte*>(&client_sign_pub[0]), client_sign_pub.size());
 
         shared_key_ = make_shared<SecByteBlock>(dh2_->AgreedValueLength());
-
         if (!dh2_->Agree(*shared_key_, *dh_key_.priv, *sign_key_.priv, dh_pub, sign_pub)) {
             throw runtime_error("Failed to reach shared secret");
         }
-
-        Log(DEBUG) << "Agreed on secret";
 
         // Calculate CEK from KEK
         // Take the leftmost 'n' bits for the KEK
@@ -80,15 +81,7 @@ namespace ncnet {
 
         // Generate a random CEK
         cek_ = make_shared<SecByteBlock>(AES::DEFAULT_KEYLENGTH);
-        AutoSeededRandomPool rnd;
-        rnd.GenerateBlock(cek_->BytePtr(), cek_->SizeInBytes());
-        Integer a;
-        a.Decode(cek_->BytePtr(), cek_->SizeInBytes());
-        Log(DEBUG) << "Generated CEK " << hex << a;
-
-        Integer c;
-        c.Decode(shared_key_->BytePtr(), shared_key_->SizeInBytes());
-        Log(DEBUG) << "SHARED SECRET " << hex << c;
+        rnd_->GenerateBlock(cek_->BytePtr(), cek_->SizeInBytes());
 
         // AES in ECB mode is fine - we're encrypting 1 block, so we don't need padding
         ECB_Mode<AES>::Encryption aes;
@@ -110,39 +103,83 @@ namespace ncnet {
     }
 
     void Security::set_encrypted_cek(const string &cek) {
-        cek_ = make_shared<SecByteBlock>(reinterpret_cast<const CryptoPP::byte*>(&cek[0]), AES::BLOCKSIZE);
-
+        SecByteBlock encrypted_cek(reinterpret_cast<const CryptoPP::byte*>(&cek[0]), AES::BLOCKSIZE);
         SecByteBlock cmac_digest(reinterpret_cast<const CryptoPP::byte*>(&cek[AES::BLOCKSIZE]), AES::BLOCKSIZE);
-
-        Integer a;
-        a.Decode(cek_->BytePtr(), cek_->SizeInBytes());
-        Log(DEBUG) << "Set encrypted CEK " << hex << a;
-
         SecByteBlock out(AES::DEFAULT_KEYLENGTH);
 
         // Take the leftmost 'n' bits for the KEK
         SecByteBlock kek(shared_key_->BytePtr(), AES::DEFAULT_KEYLENGTH);
         ECB_Mode<AES>::Decryption aes;
         aes.SetKey(kek.BytePtr(), kek.SizeInBytes());
-        aes.ProcessData(&out.BytePtr()[0], cek_->BytePtr(), AES::BLOCKSIZE);
-
-        Integer b;
-        b.Decode(out.BytePtr(), out.SizeInBytes());
-        Log(DEBUG) << "Decoded CEK TO " << hex << b;
+        aes.ProcessData(&out.BytePtr()[0], encrypted_cek.BytePtr(), AES::BLOCKSIZE);
 
         // Also verify CMAC
         SecByteBlock mack(&shared_key_->BytePtr()[AES::DEFAULT_KEYLENGTH], AES::BLOCKSIZE);
         CMAC<AES> cmac(mack.BytePtr(), mack.SizeInBytes());
-        if (cmac.VerifyTruncatedDigest(&cmac_digest.BytePtr()[0], AES::BLOCKSIZE, &cek_->BytePtr()[0], AES::BLOCKSIZE)) {
-            Log(DEBUG) << "MATCHES";
-        } else {
-            Log(DEBUG) << "DON'T MATCH";
+        if (!cmac.VerifyTruncatedDigest(&cmac_digest.BytePtr()[0], AES::BLOCKSIZE, &encrypted_cek.BytePtr()[0], AES::BLOCKSIZE)) {
+            // No match, fuck this
+            throw runtime_error("CMAC validation failed");
         }
 
+        // Store CEK
         cek_ = make_shared<SecByteBlock>(out);
     }
 
-    const SecByteBlock &Security::get_cek() const {
-        return *cek_;
+    void Security::encrypt(const shared_ptr<vector<CryptoPP::byte>> &plain, size_t start, shared_ptr<vector<CryptoPP::byte>> &cipher) {
+        CryptoPP::byte iv[IV_SIZE];
+        rnd_->GenerateBlock(iv, sizeof iv);
+
+        // Encrypted, with Tag
+        string cipher2;
+
+        try {
+            GCM<AES>::Encryption e;
+            e.SetKeyWithIV(*cek_, cek_->size(), iv, sizeof iv);
+
+            // Make room for padding
+            cipher->resize(plain->size() + AES::BLOCKSIZE + start);
+            ArraySink cs(&(*cipher)[start], cipher->size() - start);
+
+            ArraySource(plain->data() + start, plain->size() - start, true,
+                new AuthenticatedEncryptionFilter(e,
+                    new Redirector(cs), false, TAG_SIZE
+                ) // AuthenticatedEncryptionFilter
+            ); // ArraySource
+
+            // Set cipher text length now that its known
+            cipher->resize(cs.TotalPutLength() + start);
+        } catch (CryptoPP::Exception &e) {
+            // Programming error
+            throw runtime_error("Encryption failed");
+        }
+
+        // Add IV for decrypting
+        cipher->insert(cipher->end(), iv, iv + sizeof iv);
+    }
+
+    void Security::decrypt(const shared_ptr<vector<CryptoPP::byte>> &cipher, size_t start, shared_ptr<vector<CryptoPP::byte>> &plain) {
+        CryptoPP::byte *iv = &cipher->data()[cipher->size() - IV_SIZE];
+
+        try {
+            GCM<AES>::Decryption d;
+            d.SetKeyWithIV(*cek_, cek_->size(), iv, IV_SIZE);
+
+            // Make room
+            plain->resize(cipher->size() - IV_SIZE);
+            ArraySink cs(&(*plain)[start], plain->size() - start);
+
+            ArraySource(cipher->data() + start, cipher->size() - start - IV_SIZE, true,
+                new AuthenticatedDecryptionFilter(d,
+                    new Redirector(cs),
+                    AuthenticatedDecryptionFilter::DEFAULT_FLAGS,
+                    TAG_SIZE
+                )
+            );
+
+            // Set cipher text length now that its known
+            plain->resize(cs.TotalPutLength() + start);
+        } catch (CryptoPP::Exception &e) {
+            throw runtime_error("Decryption failed");
+        }
     }
 }
