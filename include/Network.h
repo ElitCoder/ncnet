@@ -26,6 +26,10 @@ namespace ncnet {
         Transfer get_packet(); // Wait and return when a packet is received
         void register_transfer_loop(const TransferFunction &func);
 
+        // Stats
+        // Returns a list of all network interfaces' IP
+        std::vector<std::string> get_interface_ips() const;
+
         // Starts internal loop
         void run();
 

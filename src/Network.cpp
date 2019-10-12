@@ -3,6 +3,7 @@
 
 #include <fcntl.h>
 #include <sys/socket.h>
+#include <ifaddrs.h>
 #include <netinet/tcp.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -25,6 +26,33 @@ namespace ncnet {
             // Call supplied function
             func(transfer);
         }
+    }
+
+    vector<string> Network::get_interface_ips() const {
+        struct ifaddrs* interfaces;
+        if (getifaddrs(&interfaces) == -1) {
+            // Could not get interfaces
+            Log(DEBUG) << "Could not retrieve IP interfaces";
+            return vector<string>();
+        }
+
+        vector<string> ips;
+        for (auto *iterator = interfaces; iterator; iterator = iterator->ifa_next) {
+            if (!iterator->ifa_addr) {
+                Log(DEBUG) << "Invalid IP address, ignoring";
+                continue;
+            }
+
+            // Check for AF_INET family interfaces
+            if (iterator->ifa_addr->sa_family == AF_INET) {
+                auto ip = inet_ntoa(((struct sockaddr_in*)iterator->ifa_addr)->sin_addr);
+                Log(DEBUG) << "Found IP " << ip;
+                ips.push_back(ip);
+            }
+        }
+
+        freeifaddrs(interfaces);
+        return ips;
     }
 
     void Network::start_key_exchange(Connection &connection) {
