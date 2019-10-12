@@ -317,7 +317,7 @@ namespace ncnet {
             if (is_client_ && connections_.empty()) {
                 Log(ERROR) << "Lost connection to server!";
                 // Simulate exit
-                stop();
+                stop(false);
             }
         }
     }
@@ -345,7 +345,7 @@ namespace ncnet {
         return transfer;
     }
 
-    void Network::stop() {
+    void Network::stop(bool wait) {
         {
             lock_guard<mutex> lock(stop_lock_);
             stop_ = true;
@@ -354,8 +354,11 @@ namespace ncnet {
             pipe_.activate();
         }
 
-        // Wait for exit
-        network_.join();
+        // Avoid resource locking if we're simulating exit
+        if (wait) {
+            // Wait for exit
+            network_.join();
+        }
 
         {
             // Wait for transfer loops

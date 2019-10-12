@@ -22,7 +22,7 @@ namespace ncnet {
         BP_GET(port, int)
 
         virtual bool start(const std::string &hostname, int port) = 0;
-        virtual void stop() final; // Flush and shutdown
+        virtual void stop(bool wait = true) final; // Flush and shutdown
         Transfer get_packet(); // Wait and return when a packet is received
         void register_transfer_loop(const TransferFunction &func);
 
