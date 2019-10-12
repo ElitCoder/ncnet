@@ -18,17 +18,15 @@ set(SRCS
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-add_compile_options(-Wall -Wextra -pedantic -fopenmp)
+add_compile_options(-Wall -Wextra -pedantic)
 
 find_package(Threads REQUIRED)
-find_package(OpenMP REQUIRED)
 
 # Library
 add_library(ncnet STATIC ${SRCS})
 
 # Linking
 target_link_libraries(ncnet PRIVATE Threads::Threads)
-target_link_libraries(ncnet PRIVATE ${OpenMP_CXX_LIBRARIES})
 
 # Includes
 target_include_directories(ncnet PRIVATE include)

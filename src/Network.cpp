@@ -200,9 +200,8 @@ namespace ncnet {
                 }
 
                 // Close all socket connections
-                #pragma omp parallel for
-                for (size_t i = 0; i < connections_.size(); i++) {
-                    connections_.at(i).disconnect();
+                for (auto &connection : connections_) {
+                    connection.disconnect();
                 }
 
                 // Close server socket
@@ -257,9 +256,7 @@ namespace ncnet {
             // Check for disconnecting connections
             {
                 lock_guard<mutex> lock(disconnect_lock_);
-                #pragma omp parallel for
-                for (size_t i = 0; i < disconnect_connections_.size(); i++) {
-                    auto id = disconnect_connections_.at(i);
+                for (auto &id : disconnect_connections_) {
                     auto iterator = find_if(connections_.begin(), connections_.end(), [&id] (auto &connection) {
                         return connection.get_id() == id;
                     });
@@ -272,12 +269,13 @@ namespace ncnet {
                     // Disconnect
                     iterator->disconnect();
                 }
+
+                // Removed everything
+                disconnect_connections_.clear();
             }
 
             // Iterate through connections
-            #pragma omp parallel for
-            for (size_t i = 0; i < connections_.size(); i++) {
-                auto& connection = connections_.at(i);
+            for (auto &connection : connections_) {
                 if (!connection.get_connected()) {
                     // Already gone
                     continue;
