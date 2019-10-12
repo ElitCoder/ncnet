@@ -33,6 +33,10 @@ bool verify_response(ncnet::Packet &packet) {
     assert(long_val == -1000000000);
     packet >> tmp;
     assert(tmp == "both");
+    auto byte = packet.read_byte();
+    assert(byte == 2);
+    packet >> tmp;
+    assert(tmp == "after");
     return false;
 }
 
@@ -46,6 +50,8 @@ ncnet::Packet create_test_packet() {
     packet << 2000000000000;
     packet << -10000;
     packet << -1000000000 << "both";
+    packet.add_byte(2);
+    packet << "after";
 
     return packet;
 }

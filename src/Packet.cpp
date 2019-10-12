@@ -23,6 +23,10 @@ namespace ncnet {
         read_position_ += len;
     }
 
+    unsigned char Packet::read_byte() {
+        return data_->at(read_position_++);
+    }
+
     void Packet::add_string(const string &val) {
         // Add prefix
         auto prefix = to_string(val.length());
@@ -30,6 +34,10 @@ namespace ncnet {
         data_->insert(data_->end(), prefix.begin(), prefix.end());
         // Add string
         data_->insert(data_->end(), val.begin(), val.end());
+    }
+
+    void Packet::add_byte(unsigned char val) {
+        data_->push_back(val);
     }
 
     void Packet::handle_error(const string &message) const {

@@ -38,6 +38,7 @@ namespace ncnet {
         }
 
         void add_string(const std::string &val);
+        void add_byte(unsigned char val);
         Packet &operator<<(bool val);
         Packet &operator<<(short val);
         Packet &operator<<(unsigned short val);
@@ -70,6 +71,7 @@ namespace ncnet {
         }
 
         void read_string(std::string &val);
+        unsigned char read_byte();
         Packet &operator>>(bool &val);
         Packet &operator>>(short &val);
         Packet &operator>>(unsigned short &val);
