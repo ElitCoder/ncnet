@@ -420,8 +420,8 @@ namespace ncnet {
                 if (!connection.get_connected()) {
                     Log(DEBUG) << "Removing connection " << connection.get_id();
                     // Call disconnect callback if registered
-                    if (get_disconnect_callback() != nullptr) {
-                        get_disconnect_callback()(connection.get_id());
+                    if (disconnect_callback_ != nullptr) {
+                        disconnect_callback_(connection.get_id());
                     }
                 }
                 return !connection.get_connected();

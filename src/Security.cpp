@@ -7,8 +7,12 @@
 #include <cryptopp/modes.h>
 #include <cryptopp/gcm.h>
 
-using namespace std;
 using namespace CryptoPP;
+using std::shared_ptr;
+using std::make_shared;
+using std::string;
+using std::vector;
+using std::runtime_error;
 
 // http://tools.ietf.org/html/rfc5114#section-2.1
 static const Integer p("0xB10B8F96A080E01DDE92DE5EAE5D54EC52C99FBCFB06A3C6"
@@ -36,7 +40,7 @@ static constexpr auto IV_SIZE = AES::BLOCKSIZE * 16;
 namespace ncnet {
     Security::Security() {
         // Initialize DH and create key-pairs
-        dh_ = make_shared<DH>();
+        dh_ = std::make_shared<DH>();
         dh_->AccessGroupParameters().Initialize(p, q, g);
 
         dh2_ = make_shared<DH2>(*dh_);
@@ -63,8 +67,8 @@ namespace ncnet {
     }
 
     std::string Security::compute_shared_key(const string &client_dh_pub, const string &client_sign_pub) {
-        SecByteBlock dh_pub(reinterpret_cast<const CryptoPP::byte*>(&client_dh_pub[0]), client_dh_pub.size());
-        SecByteBlock sign_pub(reinterpret_cast<const CryptoPP::byte*>(&client_sign_pub[0]), client_sign_pub.size());
+        SecByteBlock dh_pub(reinterpret_cast<const byte*>(&client_dh_pub[0]), client_dh_pub.size());
+        SecByteBlock sign_pub(reinterpret_cast<const byte*>(&client_sign_pub[0]), client_sign_pub.size());
 
         shared_key_ = make_shared<SecByteBlock>(dh2_->AgreedValueLength());
         if (!dh2_->Agree(*shared_key_, *dh_key_.priv, *sign_key_.priv, dh_pub, sign_pub)) {
@@ -89,7 +93,7 @@ namespace ncnet {
 
         // Will hold the encrypted key and cmac
         SecByteBlock xport(AES::BLOCKSIZE /*ENC(CEK)*/ + AES::BLOCKSIZE /*CMAC*/);
-        CryptoPP::byte* const ptr = xport.BytePtr();
+        byte* const ptr = xport.BytePtr();
 
         // Write the encrypted key in the first 16 bytes, and the CMAC in the second 16 bytes
         // The logical layout of xport:
@@ -103,8 +107,8 @@ namespace ncnet {
     }
 
     void Security::set_encrypted_cek(const string &cek) {
-        SecByteBlock encrypted_cek(reinterpret_cast<const CryptoPP::byte*>(&cek[0]), AES::BLOCKSIZE);
-        SecByteBlock cmac_digest(reinterpret_cast<const CryptoPP::byte*>(&cek[AES::BLOCKSIZE]), AES::BLOCKSIZE);
+        SecByteBlock encrypted_cek(reinterpret_cast<const byte*>(&cek[0]), AES::BLOCKSIZE);
+        SecByteBlock cmac_digest(reinterpret_cast<const byte*>(&cek[AES::BLOCKSIZE]), AES::BLOCKSIZE);
         SecByteBlock out(AES::DEFAULT_KEYLENGTH);
 
         // Take the leftmost 'n' bits for the KEK
@@ -125,8 +129,8 @@ namespace ncnet {
         cek_ = make_shared<SecByteBlock>(out);
     }
 
-    void Security::encrypt(const shared_ptr<vector<CryptoPP::byte>> &plain, size_t start, shared_ptr<vector<CryptoPP::byte>> &cipher) {
-        CryptoPP::byte iv[IV_SIZE];
+    void Security::encrypt(const shared_ptr<vector<byte>> &plain, size_t start, shared_ptr<vector<byte>> &cipher) {
+        byte iv[IV_SIZE];
         rnd_->GenerateBlock(iv, sizeof iv);
 
         // Encrypted, with Tag
@@ -157,8 +161,8 @@ namespace ncnet {
         cipher->insert(cipher->end(), iv, iv + sizeof iv);
     }
 
-    void Security::decrypt(const shared_ptr<vector<CryptoPP::byte>> &cipher, size_t start, shared_ptr<vector<CryptoPP::byte>> &plain) {
-        CryptoPP::byte *iv = &cipher->data()[cipher->size() - IV_SIZE];
+    void Security::decrypt(const shared_ptr<vector<byte>> &cipher, size_t start, shared_ptr<vector<byte>> &plain) {
+        byte *iv = &cipher->data()[cipher->size() - IV_SIZE];
 
         try {
             GCM<AES>::Decryption d;
