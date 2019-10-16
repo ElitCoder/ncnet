@@ -37,6 +37,9 @@ static constexpr auto TAG_SIZE = 12;
 // Default IV size
 static constexpr auto IV_SIZE = AES::BLOCKSIZE * 16;
 
+// Default key length (AES-128)
+static constexpr auto AES_KEY_LENGTH = 16;
+
 namespace ncnet {
     Security::Security() {
         // Initialize DH and create key-pairs
@@ -77,14 +80,14 @@ namespace ncnet {
 
         // Calculate CEK from KEK
         // Take the leftmost 'n' bits for the KEK
-        SecByteBlock kek(shared_key_->BytePtr(), AES::DEFAULT_KEYLENGTH);
+        SecByteBlock kek(shared_key_->BytePtr(), AES_KEY_LENGTH);
 
         // CMAC key follows the 'n' bits used for KEK
-        SecByteBlock mack(&shared_key_->BytePtr()[AES::DEFAULT_KEYLENGTH], AES::BLOCKSIZE);
+        SecByteBlock mack(&shared_key_->BytePtr()[AES_KEY_LENGTH], AES::BLOCKSIZE);
         CMAC<AES> cmac(mack.BytePtr(), mack.SizeInBytes());
 
         // Generate a random CEK
-        cek_ = make_shared<SecByteBlock>(AES::DEFAULT_KEYLENGTH);
+        cek_ = make_shared<SecByteBlock>(AES_KEY_LENGTH);
         rnd_->GenerateBlock(cek_->BytePtr(), cek_->SizeInBytes());
 
         // AES in ECB mode is fine - we're encrypting 1 block, so we don't need padding
@@ -109,16 +112,16 @@ namespace ncnet {
     void Security::set_encrypted_cek(const string &cek) {
         SecByteBlock encrypted_cek(reinterpret_cast<const byte*>(&cek[0]), AES::BLOCKSIZE);
         SecByteBlock cmac_digest(reinterpret_cast<const byte*>(&cek[AES::BLOCKSIZE]), AES::BLOCKSIZE);
-        SecByteBlock out(AES::DEFAULT_KEYLENGTH);
+        SecByteBlock out(AES_KEY_LENGTH);
 
         // Take the leftmost 'n' bits for the KEK
-        SecByteBlock kek(shared_key_->BytePtr(), AES::DEFAULT_KEYLENGTH);
+        SecByteBlock kek(shared_key_->BytePtr(), AES_KEY_LENGTH);
         ECB_Mode<AES>::Decryption aes;
         aes.SetKey(kek.BytePtr(), kek.SizeInBytes());
         aes.ProcessData(&out.BytePtr()[0], encrypted_cek.BytePtr(), AES::BLOCKSIZE);
 
         // Also verify CMAC
-        SecByteBlock mack(&shared_key_->BytePtr()[AES::DEFAULT_KEYLENGTH], AES::BLOCKSIZE);
+        SecByteBlock mack(&shared_key_->BytePtr()[AES_KEY_LENGTH], AES::BLOCKSIZE);
         CMAC<AES> cmac(mack.BytePtr(), mack.SizeInBytes());
         if (!cmac.VerifyTruncatedDigest(&cmac_digest.BytePtr()[0], AES::BLOCKSIZE, &encrypted_cek.BytePtr()[0], AES::BLOCKSIZE)) {
             // No match, fuck this
