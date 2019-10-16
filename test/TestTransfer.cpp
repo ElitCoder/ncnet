@@ -57,7 +57,7 @@ ncnet::Packet create_test_packet() {
 }
 
 int main() {
-    ncnet::Log::enable(true);
+    //ncnet::Log::enable(true);
 
     ncnet::Server server;
     auto port = 15500;
