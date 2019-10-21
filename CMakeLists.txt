@@ -21,13 +21,18 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 add_compile_options(-Wall -Wextra -pedantic)
 
+# Add local CMake modules
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
+
 find_package(Threads REQUIRED)
+find_package(CryptoPP REQUIRED)
 
 # Library
 add_library(ncnet STATIC ${SRCS})
 
 # Linking
-target_link_libraries(ncnet PRIVATE Threads::Threads)
+target_link_libraries(ncnet Threads::Threads)
+target_link_libraries(ncnet cryptopp-shared)
 
 # Includes
 target_include_directories(ncnet PRIVATE include)
