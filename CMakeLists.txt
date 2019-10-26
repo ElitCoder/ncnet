@@ -28,11 +28,11 @@ find_package(Threads REQUIRED)
 find_package(CryptoPP REQUIRED)
 
 # Library
-add_library(ncnet STATIC ${SRCS})
+add_library(ncnet SHARED ${SRCS})
 
 # Linking
 target_link_libraries(ncnet Threads::Threads)
-target_link_libraries(ncnet cryptopp-shared)
+target_link_libraries(ncnet cryptopp)
 
 # Includes
 target_include_directories(ncnet PRIVATE include)
