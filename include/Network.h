@@ -25,6 +25,7 @@ namespace ncnet {
         virtual void stop(bool wait = true) final; // Flush and shutdown
         Transfer get_packet(); // Wait and return when a packet is received
         void register_transfer_loop(const TransferFunction &func);
+        void run_transfer_loop(const TransferFunction &func); // Run blocking transfer loop
 
         // Stats
         // Returns a list of all network interfaces' IP

@@ -16,7 +16,7 @@
 using namespace std;
 
 namespace ncnet {
-    static void run_transfer_loop(Network &network, TransferFunction func) {
+    static void run_internal_transfer_loop(Network &network, TransferFunction func) {
         // Loop until stopped
         while (true) {
             auto transfer = network.get_packet();
@@ -505,6 +505,11 @@ namespace ncnet {
     void Network::register_transfer_loop(const TransferFunction &func) {
         lock_guard<mutex> lock(transfer_loop_lock_);
         // Start transfer thread and add to list to keep track
-        transfer_loops_.emplace_back(thread(run_transfer_loop, ref(*this), func));
+        transfer_loops_.emplace_back(thread(run_internal_transfer_loop, ref(*this), func));
+    }
+
+    void Network::run_transfer_loop(const TransferFunction &func) {
+        // Blocking transfer loop
+        run_internal_transfer_loop(ref(*this), func);
     }
 }
